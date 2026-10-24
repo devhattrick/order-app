@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-tap-highlight-color: transparent; }
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+    font-feature-settings: 'tnum' 1;
+  }
+  :focus-visible { @apply outline-none ring-2 ring-lita-600 ring-offset-2; }
+  button { @apply select-none; }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary { @apply btn bg-lita-800 text-white hover:bg-lita-900 active:bg-lita-950; }
+  .btn-soft { @apply btn bg-lita-50 text-lita-800 hover:bg-lita-100; }
+  .btn-ghost { @apply btn text-ink-soft hover:bg-lita-50 hover:text-lita-800; }
+  .btn-danger { @apply btn bg-rose-50 text-rose-700 hover:bg-rose-100; }
+  .field {
+    @apply w-full rounded-xl border border-line bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-mute focus:border-lita-600 focus:outline-none focus:ring-2 focus:ring-lita-100;
+  }
+  .label { @apply mb-1.5 block text-sm font-medium text-ink-soft; }
+  .panel { @apply rounded-2xl border border-line bg-white; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+@keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes pop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.06); opacity: 1 } 100% { transform: scale(1) } }
+@keyframes score { from { stroke-dashoffset: 120; } to { stroke-dashoffset: 0; } }
+.anim-rise { animation: rise .28s cubic-bezier(.2,.8,.2,1) both; }
+.anim-pop { animation: pop .45s cubic-bezier(.2,.8,.2,1) both; }
+.anim-score { stroke-dasharray: 120; animation: score 1.1s .2s cubic-bezier(.6,0,.2,1) both; }
+
+/* สั่งพิมพ์ใบเสร็จ: ซ่อนทุกอย่างยกเว้น #receipt */
+@media print {
+  body * { visibility: hidden; }
+  #receipt, #receipt * { visibility: visible; }
+  #receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+    color: #000;
+  }
+  @page { margin: 12mm; }
+}
