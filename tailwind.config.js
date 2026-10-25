@@ -23,7 +23,7 @@ export default {
       },
       fontFamily: {
         brand: ['"Young Serif"', 'Georgia', 'serif'],
-        sans: ['Anuphan', 'system-ui', 'sans-serif'],
+        sans: ['"IBM Plex Sans Thai"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
         lift: '0 1px 0 rgba(23,38,30,.04), 0 8px 24px -12px rgba(30,91,63,.28)',
