@@ -5,6 +5,7 @@ import { RoleSwitch } from './RoleSwitch'
 import { useAppStore } from '../store/useAppStore'
 import { useCartStore } from '../store/useCartStore'
 import { toast } from '../store/useToast'
+import { confirm } from '../store/useConfirm'
 
 const NAV = [
   { to: '/admin/pos', label: 'ผังโต๊ะ & สั่งอาหาร', short: 'โต๊ะ', icon: LayoutGrid },
@@ -16,8 +17,13 @@ const NAV = [
 
 export function AdminLayout() {
   const activeCount = useAppStore((s) => s.orders.reduce((n, o) => n + (o.status === 'PENDING' ? 1 : 0), 0))
-  const reset = () => {
-    if (!window.confirm('ล้างข้อมูลทั้งหมดและกลับไปใช้ข้อมูลตัวอย่าง?')) return
+  const reset = async () => {
+    const ok = await confirm({
+      title: 'รีเซ็ตข้อมูล Demo?',
+      message: 'ออเดอร์และเมนูที่แก้ไว้ทั้งหมดจะถูกล้าง แล้วกลับไปใช้ข้อมูลตัวอย่างเริ่มต้น',
+      confirmLabel: 'รีเซ็ตข้อมูล',
+    })
+    if (!ok) return
     useAppStore.getState().resetDemo()
     useCartStore.setState({ carts: {}, session: { orderType: null, tableNo: null } })
     toast('รีเซ็ตข้อมูลตัวอย่างแล้ว')

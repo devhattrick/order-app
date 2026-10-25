@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { CustomerLayout } from './CustomerLayout'
 import { AdminLayout } from './AdminLayout'
 import { Toaster } from '../components/ui'
+import { ConfirmHost } from '../components/ConfirmDialog'
 import WelcomePage from '../pages/customer/WelcomePage'
 import TablePickerPage from '../pages/customer/TablePickerPage'
 import MenuPage from '../pages/customer/MenuPage'
@@ -36,6 +37,7 @@ export default function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <Toaster />
+      <ConfirmHost />
     </HashRouter>
   )
 }
