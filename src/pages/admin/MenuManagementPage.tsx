@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { ImagePlus, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import type { Category, MenuItem } from '../../types'
 import { PageHeader } from '../../app/AdminLayout'
 import { MenuThumb, Modal } from '../../components/ui'
@@ -9,6 +9,7 @@ import { menuService } from '../../services'
 import { baht } from '../../utils/format'
 import { toast } from '../../store/useToast'
 import { confirm } from '../../store/useConfirm'
+import { fileToSquareDataUrl } from '../../utils/image'
 
 const EMOJI_CHOICES = ['🥐', '🍞', '🥯', '🥖', '🧁', '🍰', '🍪', '🍩', '🥧', '🍫', '🥪', '🥗', '☕️', '🍵', '🧋', '🍋']
 
@@ -126,15 +127,37 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
     price: current?.price ?? 0,
     category: (current?.category ?? 'DESSERT') as Category,
     emoji: current?.emoji ?? '🧁',
+    imageUrl: current?.imageUrl ?? '',
     optionGroupIds: current?.optionGroupIds ?? [],
     isAvailable: current?.isAvailable ?? true,
   }))
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
   const valid = form.name.trim() && form.price > 0
 
+  const pickFile = async (file?: File) => {
+    if (!file) return
+    setUploading(true)
+    try {
+      set('imageUrl', await fileToSquareDataUrl(file))
+    } catch (e) {
+      toast(e instanceof Error ? e.message : 'อัปโหลดรูปไม่สำเร็จ')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   const save = () => {
-    menuService.save({ ...form, name: form.name.trim(), nameTh: form.nameTh.trim() || form.name.trim(), id: current?.id })
+    menuService.save({
+      ...form,
+      name: form.name.trim(),
+      nameTh: form.nameTh.trim() || form.name.trim(),
+      imageUrl: form.imageUrl.trim() || undefined,
+      id: current?.id,
+    })
     toast(current ? `อัปเดต ${form.name} แล้ว` : `เพิ่ม ${form.name} เข้าเมนูแล้ว`)
     onClose()
   }
@@ -179,7 +202,53 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
         </div>
 
         <div>
-          <span className="label">ไอคอนเมนู</span>
+          <span className="label">รูปเมนู</span>
+          <div className="flex gap-4">
+            {/* พรีวิว */}
+            <div className="relative shrink-0">
+              <MenuThumb menu={{ emoji: form.emoji, imageUrl: form.imageUrl || undefined, name: form.name }} size="xl" />
+              {uploading ? (
+                <div className="absolute inset-0 grid place-items-center rounded-3xl bg-white/80">
+                  <Loader2 className="h-6 w-6 animate-spin text-lita-700" />
+                </div>
+              ) : null}
+              {form.imageUrl && !uploading ? (
+                <button
+                  type="button"
+                  onClick={() => set('imageUrl', '')}
+                  aria-label="ลบรูปเมนู"
+                  className="absolute -right-2 -top-2 grid h-7 w-7 place-items-center rounded-full bg-white text-ink-soft shadow ring-1 ring-line hover:text-rose-600"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="min-w-0 flex-1 space-y-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => pickFile(e.target.files?.[0])}
+              />
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} className="btn-soft w-full justify-center py-2.5">
+                <ImagePlus className="h-4 w-4" /> {form.imageUrl ? 'เปลี่ยนรูป' : 'อัปโหลดรูป'}
+              </button>
+              <input
+                className="field"
+                placeholder="หรือวางลิงก์รูป https://…"
+                value={form.imageUrl.startsWith('data:') ? '' : form.imageUrl}
+                onChange={(e) => set('imageUrl', e.target.value)}
+                aria-label="ลิงก์รูปเมนู"
+              />
+              <p className="text-xs text-ink-mute">ระบบจะ crop เป็นสี่เหลี่ยมจัตุรัสและย่อเหลือ 400px อัตโนมัติ</p>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <span className="label">ไอคอนสำรอง <span className="font-normal text-ink-mute">— ใช้เมื่อยังไม่มีรูป หรือรูปโหลดไม่ขึ้น</span></span>
           <div className="flex flex-wrap gap-1.5">
             {EMOJI_CHOICES.map((e) => (
               <button
@@ -187,7 +256,7 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
                 type="button"
                 aria-pressed={form.emoji === e}
                 onClick={() => set('emoji', e)}
-                className={`grid h-10 w-10 place-items-center rounded-xl border text-xl transition-colors ${form.emoji === e ? 'border-lita-700 bg-lita-50' : 'border-line hover:border-lita-300'}`}
+                className={`grid h-10 w-10 place-items-center rounded-xl border text-xl transition-colors ${form.emoji === e ? 'border-lita-700 bg-lita-50' : 'border-line hover:border-lita-200'}`}
               >
                 {e}
               </button>

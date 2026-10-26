@@ -27,7 +27,7 @@ npm run build    # build ไป dist/
 | 6 | **ผังโต๊ะ 10 กล่อง** + พนักงานคีย์ออเดอร์แทนลูกค้า + เช็คบิล/เก็บโต๊ะ | `/admin/pos` |
 | 7 | **กระดานครัว** 4 คอลัมน์ รอรับ → กำลังทำ → พร้อมเสิร์ฟ → รอเช็คบิล | `/admin/orders` |
 | 7.1 | **ใบเสร็จ** เด้งอัตโนมัติเมื่อปิดออเดอร์ / เช็คบิลโต๊ะ · สั่งพิมพ์ได้ | ทุกหน้าที่ปิดบิล |
-| 8 | **จัดการเมนู** — ร้านเพิ่ม/แก้ไข/ปิดขายเมนูขนมเองได้ | `/admin/menu` |
+| 8 | **จัดการเมนู** — ร้านเพิ่ม/แก้ไข/ปิดขาย + **อัปโหลดรูปเมนู** เองได้ | `/admin/menu` |
 | 9 | **ประวัติออเดอร์** + filter ช่วงวัน / สถานะ / ประเภท + ค้นหา | `/admin/history` |
 | 10 | **Dashboard** KPI + กราฟยอดขาย / ช่วงเวลา / หมวด / เมนูขายดี | `/admin/dashboard` |
 
@@ -53,6 +53,12 @@ npm run build    # build ไป dist/
   → โต๊ะว่างอัตโนมัติเมื่อออเดอร์ทั้งหมดของโต๊ะนั้น `COMPLETED` / `CANCELLED`
 - **สั่งเพิ่มได้** — โต๊ะเดิมสั่งซ้ำได้ ระบบรวมยอดทั้งโต๊ะตอนเช็คบิล
 - **ราคา** = `menu.price + Σ option.priceDelta` คิดต่อชิ้น แล้วคูณ `qty`
+- **รูปเมนู** (`menu.imageUrl`) — อัปโหลดไฟล์ หรือวางลิงก์ก็ได้
+  - อัปโหลด → crop กลางภาพเป็นจัตุรัส + ย่อเหลือ 400px + JPEG q0.7 → data URL ~30-45 KB
+  - ไม่มีรูป หรือรูปโหลดไม่ขึ้น → ตกกลับไปใช้ `menu.emoji` อัตโนมัติ (ไม่มีรูปแตก)
+  - **ข้อจำกัดของ Demo**: data URL ถูกเก็บใน localStorage (เพดาน ~5 MB) จึงเก็บได้ราว 80-100 เมนู
+    ตอนต่อ Backend จริงให้เปลี่ยนเป็น upload ขึ้น object storage (S3/GCS) แล้วเก็บเฉพาะ URL ลง DB —
+    ฟังก์ชันย่อรูปใน `src/utils/image.ts` ยังใช้ย่อก่อนส่งขึ้น server ได้เหมือนเดิม
 - **จังหวะชำระเงิน** (field `paidAt` บน Order)
   - `TAKEAWAY` = **Prepaid** — รับเงินตอนสั่งที่เคาน์เตอร์ ก่อนเข้าครัว → `paidAt = createdAt`
   - `DINE_IN` = **Postpaid** — รับเงินตอนเช็คบิล → `paidAt` ถูกเซ็ตตอน `closeTable()`
@@ -110,7 +116,7 @@ src/
 
 ## 6. Deploy ขึ้น GitHub Pages
 
-Workflow อยู่ที่ `.github/workflows/deploy.yml` — build + deploy อัตโนมัติเมื่อ push ขึ้น branch `production` (ใช้ `npm ci` จึงต้อง commit `package-lock.json` ไปด้วย)
+Workflow อยู่ที่ `.github/workflows/deploy.yml` — build + deploy อัตโนมัติเมื่อ push ขึ้น branch `production`
 
 ```bash
 git remote add origin https://github.com/devhattrick/order-app.git
