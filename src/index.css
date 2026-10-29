@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  html { -webkit-tap-highlight-color: transparent; }
+  html { @apply font-sans; -webkit-tap-highlight-color: transparent; }
+  button, input, select, textarea { font-family: inherit; }
   body {
     @apply bg-white font-sans text-ink antialiased;
     font-feature-settings: 'tnum' 1;

@@ -22,7 +22,7 @@ export default {
         wheat: '#C9A56A',
       },
       fontFamily: {
-        brand: ['"Young Serif"', 'Georgia', 'serif'],
+        brand: ['"IBM Plex Sans Thai"', 'system-ui', 'sans-serif'],
         sans: ['"IBM Plex Sans Thai"', 'system-ui', 'sans-serif'],
       },
       boxShadow: {
