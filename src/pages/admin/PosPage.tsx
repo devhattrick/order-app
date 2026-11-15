@@ -12,6 +12,7 @@ import { cartCount, cartTotal, useCart, useCartStore } from '../../store/useCart
 import { getTableState, orderService } from '../../services'
 import { baht, minutesAgo, timeOf } from '../../utils/format'
 import { toast } from '../../store/useToast'
+import { confirm } from '../../store/useConfirm'
 
 const TAKEAWAY = 'TAKEAWAY'
 
@@ -119,7 +120,21 @@ function OrderDrawer({ context, onClose }: { context: string; onClose: () => voi
     ? orders.filter((o) => o.orderType === 'TAKEAWAY' && ACTIVE_STATUSES.includes(o.status))
     : (table?.orders ?? [])
 
-  const submit = () => {
+  const submit = async () => {
+    const count = cartCount(items)
+    const total = cartTotal(items)
+    // กันกดผิด: ส่งเข้าครัวแล้วย้อนไม่ได้ และถ้าเป็นซื้อกลับคือรับเงินด้วย
+    const ok = await confirm({
+      tone: 'primary',
+      title: isTakeaway ? `รับเงิน ${baht(total)} และส่งเข้าครัว?` : `ส่งออเดอร์โต๊ะ ${context} เข้าครัว?`,
+      message: isTakeaway
+        ? `${count} รายการ · ลูกค้าชำระเงินตอนนี้ จากนั้นระบบจะออกใบเสร็จให้ทันที`
+        : `${count} รายการ · ${baht(total)} — ครัวจะเห็นออเดอร์นี้ทันที`,
+      confirmLabel: isTakeaway ? 'รับเงิน & ส่งเข้าครัว' : 'ส่งเข้าครัว',
+      cancelLabel: 'กลับไปแก้',
+    })
+    if (!ok) return
+
     const order = orderService.create({
       orderType: isTakeaway ? 'TAKEAWAY' : 'DINE_IN',
       tableNo: isTakeaway ? null : context,
