@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Receipt, ShoppingBag, Users, X } from 'lucide-react'
+import { ChevronRight, Receipt, ShoppingBag, Trash2, Users, X } from 'lucide-react'
 import type { MenuItem, Order } from '../../types'
 import { PageHeader } from '../../app/AdminLayout'
 import { MenuBrowser } from '../../components/MenuBrowser'
@@ -211,7 +211,25 @@ function OrderDrawer({ context, onClose }: { context: string; onClose: () => voi
                   <li key={i.key} className="flex items-start gap-2.5 py-2.5">
                     <MenuThumb menu={{ emoji: i.emoji, name: i.name }} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-ink">{i.name}</p>
+                      <div className="flex items-start gap-2">
+                        <p className="min-w-0 flex-1 text-sm font-medium text-ink">{i.name}</p>
+                        <button
+                          onClick={async () => {
+                            const ok = await confirm({
+                              title: `ลบ ${i.name} ออกจากรายการ?`,
+                              message: 'ตัวเลือกเสริมที่เลือกไว้จะหายไปด้วย ต้องคีย์ใหม่ถ้าต้องการ',
+                              confirmLabel: 'ลบรายการ',
+                            })
+                            if (!ok) return
+                            setQty(cartKey, i.key, 0)
+                            toast(`ลบ ${i.name} แล้ว`)
+                          }}
+                          aria-label={`ลบ ${i.name} ออกจากรายการที่กำลังคีย์`}
+                          className="-mr-1 -mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-mute transition-colors hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                       <OptionText options={i.options} note={i.note} />
                       <div className="mt-1.5 flex items-center justify-between">
                         <QtyStepper size="sm" value={i.qty} onChange={(n) => setQty(cartKey, i.key, n)} />
