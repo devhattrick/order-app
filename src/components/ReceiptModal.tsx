@@ -119,7 +119,7 @@ export function ReceiptModal({ orders, onClose, onConfirm, confirmLabel = 'ป�
 
             {trackable ? (
               <div className="flex items-center gap-4 border-t border-dashed border-zinc-300 py-4">
-                <QrCode value={orderStatusUrl(first.id)} size={104} className="shrink-0 rounded-lg" />
+                <QrCode value={orderStatusUrl(first)} size={104} className="shrink-0 rounded-lg" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">สแกนเพื่อติดตามสถานะ</p>
                   <p className="mt-1 text-xs leading-relaxed text-ink-mute">

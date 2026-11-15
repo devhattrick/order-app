@@ -1,4 +1,5 @@
-import type { OrderType } from '../types'
+import type { Order, OrderType } from '../types'
+import { encodeOrderSnapshot } from './orderShare'
 
 export const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -31,6 +32,10 @@ export const minutesAgo = (iso: string, now = Date.now()) => Math.max(0, Math.ro
 
 export const sameDay = (a: Date | string, b: Date | string) => dateKey(a) === dateKey(b)
 
-/** ลิงก์หน้าติดตามสถานะออเดอร์ — ใช้ทำ QR บนใบเสร็จ (HashRouter จึงต่อท้ายด้วย #/) */
-export const orderStatusUrl = (id: string) =>
-  `${window.location.origin}${window.location.pathname}#/order/${id}`
+/**
+ * ลิงก์หน้าติดตามสถานะออเดอร์ — ใช้ทำ QR บนใบเสร็จ
+ * HashRouter จึงต่อท้ายด้วย #/ และแนบ snapshot ไว้ใน query (?d=)
+ * เพื่อให้มือถือเครื่องอื่นที่ไม่มี localStorage ของร้านเปิดดูได้
+ */
+export const orderStatusUrl = (order: Order) =>
+  `${window.location.origin}${window.location.pathname}#/order/${order.id}?d=${encodeOrderSnapshot(order)}`
