@@ -30,3 +30,7 @@ export const dateOf = (iso: string) =>
 export const minutesAgo = (iso: string, now = Date.now()) => Math.max(0, Math.round((now - new Date(iso).getTime()) / 60000))
 
 export const sameDay = (a: Date | string, b: Date | string) => dateKey(a) === dateKey(b)
+
+/** ลิงก์หน้าติดตามสถานะออเดอร์ — ใช้ทำ QR บนใบเสร็จ (HashRouter จึงต่อท้ายด้วย #/) */
+export const orderStatusUrl = (id: string) =>
+  `${window.location.origin}${window.location.pathname}#/order/${id}`

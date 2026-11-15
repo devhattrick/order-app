@@ -1,11 +1,12 @@
 import { NavLink, Outlet } from 'react-router-dom'
-import { BarChart3, ClipboardList, History, LayoutGrid, RotateCcw, UtensilsCrossed } from 'lucide-react'
+import { BarChart3, Bell, BellOff, ClipboardList, History, LayoutGrid, RotateCcw, UtensilsCrossed } from 'lucide-react'
 import { Logo } from '../components/ui'
 import { RoleSwitch } from './RoleSwitch'
 import { useAppStore } from '../store/useAppStore'
 import { useCartStore } from '../store/useCartStore'
 import { toast } from '../store/useToast'
 import { confirm } from '../store/useConfirm'
+import { useNewOrderAlert } from '../hooks/useNewOrderAlert'
 
 const NAV = [
   { to: '/admin/pos', label: 'ผังโต๊ะ & สั่งอาหาร', short: 'โต๊ะ', icon: LayoutGrid },
@@ -17,6 +18,7 @@ const NAV = [
 
 export function AdminLayout() {
   const activeCount = useAppStore((s) => s.orders.reduce((n, o) => n + (o.status === 'PENDING' ? 1 : 0), 0))
+  const { soundOn, toggle: toggleSound, blocked } = useNewOrderAlert()
   const reset = async () => {
     const ok = await confirm({
       title: 'รีเซ็ตข้อมูล Demo?',
@@ -51,6 +53,18 @@ export function AdminLayout() {
           ))}
         </nav>
         <div className="space-y-3 border-t border-white/10 pt-4">
+          <button
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${soundOn ? 'bg-white/10 text-white' : 'text-lita-400 hover:bg-white/5'}`}
+          >
+            {soundOn ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+            เสียงแจ้งออเดอร์ใหม่
+            <span className="ml-auto text-xs">{soundOn ? 'เปิด' : 'ปิด'}</span>
+          </button>
+          {blocked ? (
+            <p className="px-1 text-xs leading-relaxed text-amber-300">แตะหน้าจอสักครั้งเพื่อให้เบราว์เซอร์อนุญาตให้เล่นเสียง</p>
+          ) : null}
           <RoleSwitch dark />
           <button onClick={reset} className="flex items-center gap-2 px-1 text-xs text-lita-400 hover:text-white">
             <RotateCcw className="h-3.5 w-3.5" /> รีเซ็ตข้อมูล Demo
@@ -62,6 +76,14 @@ export function AdminLayout() {
       <header className="sticky top-0 z-30 flex items-center justify-between bg-lita-900 px-4 py-3 lg:hidden">
         <Logo tone="white" />
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            aria-label={soundOn ? 'ปิดเสียงแจ้งออเดอร์ใหม่' : 'เปิดเสียงแจ้งออเดอร์ใหม่'}
+            className={`grid h-8 w-8 place-items-center rounded-full hover:bg-white/10 ${soundOn ? 'text-white' : 'text-lita-400'}`}
+          >
+            {soundOn ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+          </button>
           <button onClick={reset} aria-label="รีเซ็ตข้อมูล Demo" className="grid h-8 w-8 place-items-center rounded-full text-lita-200 hover:bg-white/10">
             <RotateCcw className="h-4 w-4" />
           </button>
