@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Receipt, ShoppingBag, Trash2, Users, X } from 'lucide-react'
+import { Ban, ChevronRight, Receipt, ShoppingBag, Trash2, Users, X } from 'lucide-react'
 import type { MenuItem, Order } from '../../types'
 import { PageHeader } from '../../app/AdminLayout'
 import { MenuBrowser } from '../../components/MenuBrowser'
@@ -147,6 +147,18 @@ function OrderDrawer({ context, onClose }: { context: string; onClose: () => voi
     toast(`ส่งออเดอร์ ${order.queueNo} เข้าครัวแล้ว`)
   }
 
+  const cancelOrder = async (o: Order) => {
+    const ok = await confirm({
+      title: `ยกเลิกออเดอร์ ${o.queueNo}?`,
+      message: `${o.items.length} รายการ · ${baht(o.totalAmount)} — ครัวยังไม่เริ่มทำ ยกเลิกได้โดยไม่เสียของ ออเดอร์จะไม่ถูกนับเป็นยอดขาย`,
+      confirmLabel: 'ยกเลิกออเดอร์',
+      cancelLabel: 'ไม่ยกเลิก',
+    })
+    if (!ok) return
+    orderService.updateStatus(o.id, 'CANCELLED')
+    toast(`ยกเลิก ${o.queueNo} แล้ว`)
+  }
+
   const close = () => {
     orderService.closeTable(context)
     setBill(null)
@@ -190,7 +202,17 @@ function OrderDrawer({ context, onClose }: { context: string; onClose: () => voi
                       </li>
                     ))}
                   </ul>
-                  <p className="mt-1 text-right text-sm font-semibold text-ink">{baht(o.totalAmount)}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    {/* ยกเลิกได้เฉพาะที่ครัวยังไม่เริ่มทำ — เริ่มทำแล้วของถูกใช้ไปแล้ว ต้องไปจัดการที่กระดานครัว */}
+                    {o.status === 'PENDING' ? (
+                      <button onClick={() => cancelOrder(o)} className="btn-ghost px-2.5 py-1.5 text-xs text-[#B3261E] hover:bg-rose-50">
+                        <Ban className="h-3.5 w-3.5" /> ยกเลิกออเดอร์
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                    <span className="text-sm font-semibold text-ink">{baht(o.totalAmount)}</span>
+                  </div>
                 </article>
               ))}
               {!isTakeaway ? (
