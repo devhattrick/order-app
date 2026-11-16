@@ -45,6 +45,7 @@ QR ก็จะฝัง localhost ไปด้วยและมือถือ
 | 7.2 | **QR บนใบเสร็จ** ลูกค้าสแกนติดตามสถานะออเดอร์เองได้ | ใบเสร็จออเดอร์เดี่ยว |
 | 7.3 | **เสียงแจ้งเตือนออเดอร์ใหม่** เผื่อพนักงานไม่ได้จ้องจอ | ทุกหน้าฝั่งร้าน |
 | 8 | **จัดการเมนู** — ร้านเพิ่ม/แก้ไข/ปิดขาย + **อัปโหลดรูปเมนู** เองได้ | `/admin/menu` |
+| 8.1 | **สร้าง/แก้ไขตัวเลือกเสริมเองได้** — กลุ่มตัวเลือกใช้ซ้ำข้ามเมนู | ในฟอร์มเมนู |
 | 9 | **ประวัติออเดอร์** + filter ช่วงวัน / สถานะ / ประเภท + ค้นหา | `/admin/history` |
 | 10 | **Dashboard** KPI + กราฟยอดขาย / ช่วงเวลา / หมวด / เมนูขายดี | `/admin/dashboard` |
 
@@ -84,6 +85,11 @@ QR ก็จะฝัง localhost ไปด้วยและมือถือ
     จำเป็นเพราะมือถือลูกค้ามี localStorage คนละก้อนกับเครื่องร้าน ถ้าไม่ฝังไว้จะหาออเดอร์ไม่เจอและเด้งกลับหน้าแรก
     หน้าสถานะจะใช้ข้อมูลใน localStorage ก่อนเสมอ (สดกว่า) แล้วค่อย fallback ไป snapshot
     ดู `src/utils/orderShare.ts` — ตอนต่อ Backend ให้เปลี่ยนเป็น `GET /api/orders/{token}` แล้วถอด `?d=` ทิ้ง
+- **ตัวเลือกเสริม** (`OptionGroup`) เป็น master data แยกจากเมนู ผูกกันแบบ many-to-many ผ่าน `menu.optionGroupIds`
+  - ร้านสร้าง/แก้ไข/ลบกลุ่มเองได้จากในฟอร์มเมนู — กำหนดชื่อ, `SINGLE`/`MULTI`, บังคับเลือกหรือไม่, ตัวเลือกย่อยพร้อมราคาที่บวกเพิ่ม, และค่าเริ่มต้น
+  - **แก้กลุ่มเดียว กระทบทุกเมนูที่ผูกอยู่** → ฟอร์มจะเตือนพร้อมบอกจำนวนเมนูที่ใช้อยู่
+  - **ออเดอร์เก่าไม่กระทบ** เพราะ `OrderItem.options` เก็บ snapshot (`groupName`, `choiceName`, `priceDelta`) ไว้ตั้งแต่ตอนสั่ง
+  - ลบกลุ่ม → ถอดออกจากทุกเมนูที่อ้างถึงอัตโนมัติ (`deleteOptionGroup`)
 - **รูปเมนู** (`menu.imageUrl`) — อัปโหลดไฟล์ หรือวางลิงก์ก็ได้
   - อัปโหลด → crop กลางภาพเป็นจัตุรัส + ย่อเหลือ 400px + JPEG q0.7 → data URL ~30-45 KB
   - ไม่มีรูป หรือรูปโหลดไม่ขึ้น → ตกกลับไปใช้ `menu.emoji` อัตโนมัติ (ไม่มีรูปแตก)
@@ -131,6 +137,8 @@ src/
 | `menuService.save` | `POST /api/menus` · `PUT /api/menus/{id}` |
 | `menuService.toggleAvailability` | `PATCH /api/menus/{id}/availability` |
 | `menuService.remove` | `DELETE /api/menus/{id}` |
+| `optionGroupService.save` | `POST /api/option-groups` · `PUT /api/option-groups/{id}` |
+| `optionGroupService.remove` | `DELETE /api/option-groups/{id}` |
 | `getTableState` | `GET /api/tables` |
 
 ---

@@ -6,7 +6,7 @@
  * เป็น fetch/axios ตาม Endpoint ที่ระบุใน comment โดย UI ไม่ต้องแก้
  */
 import { useAppStore, type CreateOrderInput } from '../store/useAppStore'
-import type { MenuItem, Order, OrderStatus } from '../types'
+import type { MenuItem, OptionGroup, Order, OrderStatus } from '../types'
 import { ACTIVE_STATUSES } from '../data/constants'
 
 const store = () => useAppStore.getState()
@@ -27,6 +27,13 @@ export const menuService = {
   toggleAvailability: (id: string) => store().toggleMenuAvailability(id),
   /** DELETE /api/menus/{id} */
   remove: (id: string) => store().deleteMenu(id),
+}
+
+export const optionGroupService = {
+  /** POST /api/option-groups  |  PUT /api/option-groups/{id} */
+  save: (group: Omit<OptionGroup, 'id'> & { id?: string }) => store().upsertOptionGroup(group),
+  /** DELETE /api/option-groups/{id} */
+  remove: (id: string) => store().deleteOptionGroup(id),
 }
 
 /* ---------- Selectors (ฝั่ง Backend = GET /api/tables) ---------- */

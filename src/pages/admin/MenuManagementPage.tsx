@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
-import { ImagePlus, Loader2, Pencil, Plus, Trash2, X } from 'lucide-react'
-import type { Category, MenuItem } from '../../types'
+import { ImagePlus, Loader2, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react'
+import type { Category, MenuItem, OptionGroup } from '../../types'
 import { PageHeader } from '../../app/AdminLayout'
 import { MenuThumb, Modal } from '../../components/ui'
 import { CATEGORIES, categoryLabel } from '../../data/constants'
@@ -10,6 +10,7 @@ import { baht } from '../../utils/format'
 import { toast } from '../../store/useToast'
 import { confirm } from '../../store/useConfirm'
 import { fileToSquareDataUrl } from '../../utils/image'
+import { OptionGroupModal } from '../../components/OptionGroupModal'
 
 const EMOJI_CHOICES = ['🥐', '🍞', '🥯', '🥖', '🧁', '🍰', '🍪', '🍩', '🥧', '🍫', '🥪', '🥗', '☕️', '🍵', '🧋', '🍋']
 
@@ -132,6 +133,7 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
     isAvailable: current?.isAvailable ?? true,
   }))
   const [uploading, setUploading] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<OptionGroup | 'NEW' | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
@@ -270,23 +272,40 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
             {groups.map((g) => {
               const on = form.optionGroupIds.includes(g.id)
               return (
-                <label key={g.id} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition-colors ${on ? 'border-lita-700 bg-lita-50' : 'border-line'}`}>
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => set('optionGroupIds', on ? form.optionGroupIds.filter((x) => x !== g.id) : [...form.optionGroupIds, g.id])}
-                    className="mt-0.5 h-4 w-4 accent-lita-700"
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-sm font-medium text-ink">{g.name}</span>
-                    <span className="block text-xs text-ink-mute">
-                      {g.type === 'SINGLE' ? 'เลือกได้ 1 อย่าง' : 'เลือกได้หลายอย่าง'} · {g.choices.map((c) => c.name).join(', ')}
+                <div key={g.id} className={`flex items-start gap-3 rounded-xl border p-3 transition-colors ${on ? 'border-lita-700 bg-lita-50' : 'border-line'}`}>
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => set('optionGroupIds', on ? form.optionGroupIds.filter((x) => x !== g.id) : [...form.optionGroupIds, g.id])}
+                      className="mt-0.5 h-4 w-4 accent-lita-700"
+                    />
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-ink">
+                        {g.name}
+                        {g.required ? <span className="ml-1.5 text-xs font-normal text-ink-mute">(บังคับเลือก)</span> : null}
+                      </span>
+                      <span className="block text-xs text-ink-mute">
+                        {g.type === 'SINGLE' ? 'เลือกได้ 1 อย่าง' : 'เลือกได้หลายอย่าง'} · {g.choices.map((c) => c.name).join(', ')}
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditingGroup(g)}
+                    aria-label={`แก้ไขตัวเลือก ${g.name}`}
+                    className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-ink-mute transition-colors hover:bg-white hover:text-lita-800"
+                  >
+                    <Settings2 className="h-4 w-4" />
+                  </button>
+                </div>
               )
             })}
           </div>
+
+          <button type="button" onClick={() => setEditingGroup('NEW')} className="btn-soft mt-2 w-full justify-center py-2.5">
+            <Plus className="h-4 w-4" /> สร้างตัวเลือกเสริมใหม่
+          </button>
         </div>
 
         <label className="flex items-center gap-2 text-sm text-ink">
@@ -301,6 +320,12 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
           {current ? 'บันทึกการแก้ไข' : 'เพิ่มเมนู'}
         </button>
       </div>
+
+      <OptionGroupModal
+        editing={editingGroup}
+        onClose={() => setEditingGroup(null)}
+        onCreated={(g) => set('optionGroupIds', [...form.optionGroupIds, g.id])}
+      />
     </Modal>
   )
 }

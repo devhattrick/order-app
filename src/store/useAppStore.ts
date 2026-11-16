@@ -20,6 +20,8 @@ interface AppState {
   updateOrderStatus: (id: string, status: OrderStatus) => void
   closeTable: (tableNo: string) => void
   upsertMenu: (menu: Omit<MenuItem, 'id' | 'createdAt'> & { id?: string }) => MenuItem
+  upsertOptionGroup: (group: Omit<OptionGroup, 'id'> & { id?: string }) => OptionGroup
+  deleteOptionGroup: (id: string) => void
   toggleMenuAvailability: (id: string) => void
   deleteMenu: (id: string) => void
   resetDemo: () => void
@@ -107,6 +109,31 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ menus: [...s.menus, created] }))
         return created
       },
+
+      upsertOptionGroup: (input) => {
+        // กัน defaultChoiceId ชี้ไปยังตัวเลือกที่ถูกลบไปแล้ว
+        const clean = {
+          ...input,
+          defaultChoiceId: input.choices.some((c) => c.id === input.defaultChoiceId) ? input.defaultChoiceId : undefined,
+        }
+        if (input.id) {
+          const updated = { ...clean, id: input.id } as OptionGroup
+          set((s) => ({ optionGroups: s.optionGroups.map((g) => (g.id === input.id ? updated : g)) }))
+          return updated
+        }
+        const created: OptionGroup = { ...clean, id: `og-${uid().slice(0, 8)}` }
+        set((s) => ({ optionGroups: [...s.optionGroups, created] }))
+        return created
+      },
+
+      /** ลบกลุ่มตัวเลือก แล้วถอดออกจากทุกเมนูที่อ้างถึง (ออเดอร์เก่าไม่กระทบ เพราะเก็บ snapshot ไว้แล้ว) */
+      deleteOptionGroup: (id) =>
+        set((s) => ({
+          optionGroups: s.optionGroups.filter((g) => g.id !== id),
+          menus: s.menus.map((m) =>
+            m.optionGroupIds.includes(id) ? { ...m, optionGroupIds: m.optionGroupIds.filter((x) => x !== id) } : m,
+          ),
+        })),
 
       toggleMenuAvailability: (id) =>
         set((s) => ({ menus: s.menus.map((m) => (m.id === id ? { ...m, isAvailable: !m.isAvailable } : m)) })),

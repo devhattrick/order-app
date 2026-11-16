@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ClipboardList, Clock } from 'lucide-react'
 import type { Order } from '../../types'
@@ -10,8 +11,24 @@ import { baht, minutesAgo, sameDay, timeOf } from '../../utils/format'
 import { toast } from '../../store/useToast'
 import { confirm } from '../../store/useConfirm'
 
+/** ออเดอร์ที่เพิ่งเข้ามาไม่เกินเท่านี้ ถือว่า "ใหม่" และไฮไลต์บนกระดาน */
+const NEW_WINDOW_MS = 90_000
+
+/**
+ * เดินนาฬิกาทุก 10 วินาที เพื่อให้ตัวเลข "X นาที" และไฮไลต์ "ใหม่"
+ * อัปเดตเองโดยไม่ต้องรอ store เปลี่ยน
+ */
+function useNowTick(intervalMs = 10_000) {
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setTick((n) => n + 1), intervalMs)
+    return () => clearInterval(t)
+  }, [intervalMs])
+}
+
 /** กระดานครัว: ไล่ออเดอร์จากซ้ายไปขวาตามสถานะ */
 export default function OrderBoardPage() {
+  useNowTick()
   const orders = useAppStore((s) => s.orders)
   const today = orders.filter((o) => sameDay(o.createdAt, new Date()))
   const board = BOARD_COLUMNS.map((s) => ({
@@ -58,12 +75,18 @@ function OrderCard({ order }: { order: Order }) {
   const next = nextStatus(order)
   const mins = minutesAgo(order.createdAt)
   const late = (order.status === 'PENDING' || order.status === 'PREPARING') && mins >= 15
+  const isNew = order.status === 'PENDING' && Date.now() - new Date(order.createdAt).getTime() < NEW_WINDOW_MS
 
   return (
-    <article className="panel p-4">
+    <article className={`panel p-4 ${isNew ? 'anim-pop ring-2 ring-amber-400 ring-offset-2' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-brand text-2xl leading-none text-ink">{order.queueNo}</p>
+          <p className="flex items-center gap-2 font-brand text-2xl leading-none text-ink">
+            {order.queueNo}
+            {isNew ? (
+              <span className="rounded-full bg-amber-400 px-2 py-0.5 font-sans text-[11px] font-bold text-amber-950">ใหม่</span>
+            ) : null}
+          </p>
           <p className="mt-1 text-sm text-ink-mute">
             {ORDER_TYPE_LABEL[order.orderType]}
             {order.tableNo ? ` · โต๊ะ ${order.tableNo}` : ''}

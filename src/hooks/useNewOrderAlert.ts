@@ -15,6 +15,23 @@ function readPref() {
 
 const FRESH_WINDOW_MS = 60_000
 
+const BASE_TITLE = typeof document !== 'undefined' ? document.title : ''
+let pendingSeen = 0
+
+/** เปลี่ยนชื่อแท็บเป็น (n) ออเดอร์ใหม่ จนกว่าจะกลับมาโฟกัสหน้านี้ */
+function flashTitle(count: number) {
+  if (typeof document === 'undefined' || !document.hidden) return
+  pendingSeen += count
+  document.title = `(${pendingSeen}) ออเดอร์ใหม่ · ${BASE_TITLE}`
+  const restore = () => {
+    if (document.hidden) return
+    pendingSeen = 0
+    document.title = BASE_TITLE
+    document.removeEventListener('visibilitychange', restore)
+  }
+  document.addEventListener('visibilitychange', restore)
+}
+
 /**
  * เฝ้าดูออเดอร์ใหม่ที่เข้ามา แล้วแจ้งเตือนด้วยเสียง + toast
  * ใช้ใน AdminLayout เพื่อให้ได้ยินทุกหน้าฝั่งร้าน ไม่ใช่เฉพาะกระดานครัว
@@ -66,6 +83,8 @@ export function useNewOrderAlert() {
         playNewOrderChime()
         if (isAudioBlocked()) setBlocked(true)
       }
+      // ถ้าสลับไปแท็บอื่นอยู่ ให้ขึ้นบนชื่อแท็บด้วย จะได้เห็นจาก taskbar
+      flashTitle(fresh.length)
       toast(
         fresh.length === 1
           ? `ออเดอร์ใหม่ ${fresh[0].queueNo}${fresh[0].tableNo ? ` · โต๊ะ ${fresh[0].tableNo}` : ' · ซื้อกลับ'}`
