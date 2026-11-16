@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import type { OptionChoice, OptionGroup } from '../types'
-import { Modal } from './ui'
+import { Modal, Req } from './ui'
 import { useAppStore } from '../store/useAppStore'
 import { optionGroupService } from '../services'
 import { toast } from '../store/useToast'
@@ -93,7 +93,7 @@ export function OptionGroupModal({ editing, onClose, onCreated }: Props) {
         ) : null}
 
         <div>
-          <label htmlFor="og-name" className="label">ชื่อกลุ่ม *</label>
+          <label htmlFor="og-name" className="label">ชื่อกลุ่ม<Req /></label>
           <input id="og-name" className="field" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="เช่น ระดับความเข้ม" />
         </div>
 
@@ -125,7 +125,7 @@ export function OptionGroupModal({ editing, onClose, onCreated }: Props) {
 
         <div>
           <div className="mb-2 flex items-end justify-between">
-            <span className="label mb-0">ตัวเลือกในกลุ่ม *</span>
+            <span className="label mb-0">ตัวเลือกในกลุ่ม<Req /></span>
             {form.type === 'SINGLE' ? <span className="text-xs text-ink-mute">● = ค่าเริ่มต้น</span> : null}
           </div>
 

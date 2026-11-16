@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { ImagePlus, Loader2, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react'
 import type { Category, MenuItem, OptionGroup } from '../../types'
 import { PageHeader } from '../../app/AdminLayout'
-import { MenuThumb, Modal } from '../../components/ui'
+import { MenuThumb, Modal, Req } from '../../components/ui'
 import { CATEGORIES, categoryLabel } from '../../data/constants'
 import { useAppStore } from '../../store/useAppStore'
 import { menuService } from '../../services'
@@ -174,7 +174,7 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
       <div className="space-y-4 border-t border-line p-5">
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="f-name" className="label">ชื่อเมนู (อังกฤษ) *</label>
+            <label htmlFor="f-name" className="label">ชื่อเมนู (อังกฤษ)<Req /></label>
             <input id="f-name" className="field" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="Pistachio Croissant" />
           </div>
           <div>
@@ -190,7 +190,7 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="f-price" className="label">ราคา (บาท) *</label>
+            <label htmlFor="f-price" className="label">ราคา (บาท)<Req /></label>
             <input id="f-price" type="number" min={0} className="field" value={form.price || ''} onChange={(e) => set('price', Number(e.target.value))} />
           </div>
           <div>

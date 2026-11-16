@@ -140,3 +140,12 @@ export function Empty({ icon, title, children }: { icon: ReactNode; title: strin
     </div>
   )
 }
+
+/** ดอกจันสีแดงบอกว่าเป็นช่องบังคับกรอก — ใช้ใน label ของฟอร์มทุกที่ */
+export function Req() {
+  return (
+    <span className="text-[#B3261E]" title="จำเป็นต้องกรอก">
+      {' *'}
+    </span>
+  )
+}
