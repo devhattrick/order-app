@@ -1,5 +1,4 @@
-import type { Order, OrderType } from '../types'
-import { encodeOrderSnapshot } from './orderShare'
+import type { Order } from '../types'
 
 export const uid = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -12,12 +11,6 @@ export const dateKey = (d: Date | string) => {
   const x = typeof d === 'string' ? new Date(d) : d
   return `${x.getFullYear()}${pad(x.getMonth() + 1, 2)}${pad(x.getDate(), 2)}`
 }
-
-/** orderNo = YYYYMMDD-NNN (running ต่อวัน) */
-export const formatOrderNo = (d: Date, seq: number) => `${dateKey(d)}-${pad(seq)}`
-
-/** queueNo = D-001 (ทานที่ร้าน) / T-001 (ซื้อกลับ) — reset ทุกวัน */
-export const formatQueueNo = (type: OrderType, seq: number) => `${type === 'DINE_IN' ? 'D' : 'T'}-${pad(seq)}`
 
 const thb = new Intl.NumberFormat('th-TH', { maximumFractionDigits: 0 })
 export const baht = (n: number) => `฿${thb.format(n)}`
@@ -34,8 +27,10 @@ export const sameDay = (a: Date | string, b: Date | string) => dateKey(a) === da
 
 /**
  * ลิงก์หน้าติดตามสถานะออเดอร์ — ใช้ทำ QR บนใบเสร็จ
- * HashRouter จึงต่อท้ายด้วย #/ และแนบ snapshot ไว้ใน query (?d=)
- * เพื่อให้มือถือเครื่องอื่นที่ไม่มี localStorage ของร้านเปิดดูได้
+ *
+ * ใช้ trackingToken ที่ server สุ่มให้ ไม่ใช่ id จริงของออเดอร์
+ * ลูกค้าจึงเดา url ของออเดอร์โต๊ะอื่นไม่ได้ และเปิดดูได้จากมือถือเครื่องไหนก็ได้
+ * เพราะข้อมูลมาจาก API ไม่ใช่ localStorage ของเครื่องที่ออกบิล
  */
-export const orderStatusUrl = (order: Order) =>
-  `${window.location.origin}${window.location.pathname}#/order/${order.id}?d=${encodeOrderSnapshot(order)}`
+export const orderTrackUrl = (order: Pick<Order, 'trackingToken'>) =>
+  `${window.location.origin}${window.location.pathname}#/track/${order.trackingToken}`

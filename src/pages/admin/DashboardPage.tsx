@@ -1,5 +1,5 @@
-import { Receipt, ShoppingBag, TrendingUp, Utensils } from "lucide-react";
-import { useMemo } from "react";
+import { Loader2, Receipt, ShoppingBag, TrendingUp, Utensils } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -15,105 +15,100 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader } from "../../app/AdminLayout";
-import { CATEGORIES, categoryLabel } from "../../data/constants";
-import { useAppStore } from "../../store/useAppStore";
-import type { Category, Order } from "../../types";
-import { baht, dateKey, sameDay } from "../../utils/format";
+import { categoryLabel } from "../../data/constants";
+import { errorMessage } from "../../lib/apiClient";
+import { dashboardService } from "../../services";
+import type { Category, DashboardSummary } from "../../types";
+import { baht } from "../../utils/format";
 
 /** ลำดับสีไล่โทนเขียว Lita — ใช้เรียงตามค่ามาก→น้อย เพื่อให้อ่านลำดับได้จากสี */
 const SERIES = ["#1E5B3F", "#2F7F59", "#58A77C", "#8FC7A8", "#C9A56A"];
 const GRID = "#E3EBE6";
 const AXIS = "#6B7F74";
 
-const paid = (o: Order) => o.status !== "CANCELLED";
+/** ช่วงเวลาที่ร้านเปิด — ตรึงแกนไว้เพื่อให้กราฟหน้าตาเหมือนเดิมทุกวัน */
+const OPEN_HOURS = Array.from({ length: 11 }, (_, i) => i + 8);
 
+const DAYS = 14;
+
+/**
+ * Dashboard — ADMIN เท่านั้น
+ * -------------------------------------------------------------
+ * ตัวเลขทั้งหมดคำนวณที่ฝั่ง Backend (GET /api/dashboard/summary)
+ * ไม่ได้ดึงออเดอร์ทั้งหมดมานับเองที่เบราว์เซอร์ เพราะข้อมูลสะสมหลายเดือน
+ * จะโหลดช้าและกินเน็ตของเครื่องหน้าร้านโดยไม่จำเป็น
+ *
+ * STAFF เข้าหน้านี้ไม่ได้อยู่แล้ว (RequireAuth) และต่อให้ยิง API ตรง ๆ
+ * SecurityConfig ก็ตอบ 403 กลับไป
+ */
 export default function DashboardPage() {
-  const orders = useAppStore((s) => s.orders);
-  const menus = useAppStore((s) => s.menus);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    dashboardService
+      .summary(DAYS)
+      .then(setSummary)
+      .catch((e) => setError(errorMessage(e)));
+  }, []);
+
+  // แปลงข้อมูลจาก API ให้อยู่ในรูปที่ recharts ใช้ได้ตรง ๆ
   const d = useMemo(() => {
-    const valid = orders.filter(paid);
-    const today = valid.filter((o) => sameDay(o.createdAt, new Date()));
-    const revenueToday = today.reduce((s, o) => s + o.totalAmount, 0);
+    if (!summary) return null;
 
-    // ยอดขายราย 14 วัน
-    const days = Array.from({ length: 14 }, (_, i) => {
-      const date = new Date(Date.now() - (13 - i) * 86400000);
-      const key = dateKey(date);
-      const list = valid.filter((o) => dateKey(o.createdAt) === key);
-      return {
-        label: date.toLocaleDateString("th-TH", {
-          day: "numeric",
-          month: "short",
-        }),
-        revenue: list.reduce((s, o) => s + o.totalAmount, 0),
-        orders: list.length,
-      };
-    });
-
-    // ออเดอร์ตามช่วงเวลา (เฉลี่ยต่อวัน)
-    const hours = Array.from({ length: 11 }, (_, i) => {
-      const h = i + 8;
-      const count = valid.filter(
-        (o) => new Date(o.createdAt).getHours() === h,
-      ).length;
-      return { label: `${h}:00`, orders: Math.round((count / 14) * 10) / 10 };
-    });
-
-    // สัดส่วนยอดขายตามหมวด
-    const byCat = CATEGORIES.map((c) => ({
-      id: c.id as Category,
-      label: c.label,
-      value: valid.reduce(
-        (s, o) =>
-          s +
-          o.items
-            .filter((i) => i.category === c.id)
-            .reduce((t, i) => t + i.lineTotal, 0),
-        0,
-      ),
-    }))
+    const byCat = summary.salesByCategory
+      .map((c) => ({ id: c.category as Category, label: categoryLabel(c.category), value: c.revenue }))
       .filter((c) => c.value > 0)
       .sort((a, b) => b.value - a.value);
 
-    // เมนูขายดี
-    const tally = new Map<
-      string,
-      { name: string; qty: number; revenue: number }
-    >();
-    for (const o of valid)
-      for (const i of o.items) {
-        const cur = tally.get(i.menuId) ?? {
-          name: i.menuName,
-          qty: 0,
-          revenue: 0,
-        };
-        cur.qty += i.qty;
-        cur.revenue += i.lineTotal;
-        tally.set(i.menuId, cur);
-      }
-    const top = [...tally.values()].sort((a, b) => b.qty - a.qty).slice(0, 6);
+    const hourly = new Map(summary.hourlyOrders.map((h) => [h.hour, h.averageOrders]));
 
-    const dineIn = valid.filter((o) => o.orderType === "DINE_IN").length;
     return {
-      revenueToday,
-      ordersToday: today.length,
-      avgToday: today.length ? Math.round(revenueToday / today.length) : 0,
-      dineInShare: valid.length ? Math.round((dineIn / valid.length) * 100) : 0,
-      days,
-      hours,
+      revenueToday: summary.revenueToday,
+      ordersToday: summary.ordersToday,
+      avgToday: Math.round(summary.averagePerOrderToday),
+      dineInShare: summary.dineInSharePercent,
+      days: summary.dailySales.map((row) => ({
+        label: new Date(row.date).toLocaleDateString("th-TH", { day: "numeric", month: "short" }),
+        revenue: row.revenue,
+        orders: row.orders,
+      })),
+      hours: OPEN_HOURS.map((hour) => ({
+        label: `${hour}:00`,
+        orders: Math.round((hourly.get(hour) ?? 0) * 10) / 10,
+      })),
       byCat,
-      top,
-      maxTop: Math.max(1, ...[...tally.values()].map((t) => t.qty)),
-      activeMenus: menus.filter((m) => m.isAvailable).length,
+      top: summary.topMenus.map((m) => ({ name: m.menuName, qty: m.qty, revenue: m.revenue })),
+      maxTop: Math.max(1, ...summary.topMenus.map((m) => m.qty)),
+      activeMenus: summary.availableMenuCount,
     };
-  }, [orders, menus]);
+  }, [summary]);
+
+  if (error) {
+    return (
+      <>
+        <PageHeader title="Dashboard" subtitle="ภาพรวมยอดขาย" />
+        <p className="mx-4 rounded-xl bg-rose-50 px-3 py-2.5 text-sm text-rose-700 sm:mx-8">{error}</p>
+      </>
+    );
+  }
+
+  if (!d) {
+    return (
+      <>
+        <PageHeader title="Dashboard" subtitle="ภาพรวมยอดขาย" />
+        <div className="grid place-items-center py-24">
+          <Loader2 className="h-6 w-6 animate-spin text-lita-700" />
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Dashboard"
-        subtitle="ภาพรวมยอดขายย้อนหลัง 14 วัน · ข้อมูลตัวอย่างสำหรับ Demo"
+        subtitle={`ภาพรวมยอดขายย้อนหลัง ${DAYS} วัน`}
       />
 
       <div className="space-y-4 px-4 pb-10 sm:px-8">

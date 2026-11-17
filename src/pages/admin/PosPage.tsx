@@ -10,6 +10,7 @@ import { ACTIVE_STATUSES, STATUS_META, TABLES } from '../../data/constants'
 import { useAppStore } from '../../store/useAppStore'
 import { cartCount, cartTotal, useCart, useCartStore } from '../../store/useCartStore'
 import { getTableState, orderService } from '../../services'
+import { errorMessage } from '../../lib/apiClient'
 import { baht, minutesAgo, timeOf } from '../../utils/format'
 import { toast } from '../../store/useToast'
 import { confirm } from '../../store/useConfirm'
@@ -135,16 +136,21 @@ function OrderDrawer({ context, onClose }: { context: string; onClose: () => voi
     })
     if (!ok) return
 
-    const order = orderService.create({
-      orderType: isTakeaway ? 'TAKEAWAY' : 'DINE_IN',
-      tableNo: isTakeaway ? null : context,
-      items,
-      source: 'POS',
-    })
-    clear(cartKey)
-    // ซื้อกลับ = รับเงินตอนสั่ง จึงออกใบเสร็จทันทีก่อนเข้าครัว
-    if (isTakeaway) setBill({ orders: [order], confirm: false })
-    toast(`ส่งออเดอร์ ${order.queueNo} เข้าครัวแล้ว`)
+    try {
+      // ส่งแค่เมนูกับจำนวน — ราคาทั้งหมด server คำนวณใหม่เองจากฐานข้อมูล
+      const order = await orderService.create({
+        orderType: isTakeaway ? 'TAKEAWAY' : 'DINE_IN',
+        tableNo: isTakeaway ? null : context,
+        items,
+      })
+      useAppStore.getState().applyOrder(order)
+      clear(cartKey)
+      // ซื้อกลับ = รับเงินตอนสั่ง จึงออกใบเสร็จทันทีก่อนเข้าครัว
+      if (isTakeaway) setBill({ orders: [order], confirm: false })
+      toast(`ส่งออเดอร์ ${order.queueNo} เข้าครัวแล้ว`)
+    } catch (e) {
+      toast(errorMessage(e))
+    }
   }
 
   const cancelOrder = async (o: Order) => {
@@ -155,15 +161,23 @@ function OrderDrawer({ context, onClose }: { context: string; onClose: () => voi
       cancelLabel: 'ไม่ยกเลิก',
     })
     if (!ok) return
-    orderService.updateStatus(o.id, 'CANCELLED')
-    toast(`ยกเลิก ${o.queueNo} แล้ว`)
+    try {
+      useAppStore.getState().applyOrder(await orderService.updateStatus(o.id, 'CANCELLED'))
+      toast(`ยกเลิก ${o.queueNo} แล้ว`)
+    } catch (e) {
+      toast(errorMessage(e))
+    }
   }
 
-  const close = () => {
-    orderService.closeTable(context)
-    setBill(null)
-    toast(`เก็บโต๊ะ ${context} แล้ว`)
-    onClose()
+  const close = async () => {
+    try {
+      useAppStore.getState().applyOrders(await orderService.closeTable(context))
+      setBill(null)
+      toast(`เก็บโต๊ะ ${context} แล้ว`)
+      onClose()
+    } catch (e) {
+      toast(errorMessage(e))
+    }
   }
 
   return (

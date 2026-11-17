@@ -1,25 +1,19 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { CartItem, OrderType } from '../types'
+import type { CartItem } from '../types'
 
 /**
- * แยกตะกร้าตาม context:
- *  - 'customer'      = ตะกร้าของลูกค้าที่สั่งเองจากมือถือ
+ * ตะกร้า "ที่กำลังคีย์" ของพนักงาน แยกตามโต๊ะ
  *  - 'pos:T1'..'T10' = ตะกร้าที่พนักงานกำลังคีย์ให้โต๊ะนั้น
  *  - 'pos:TAKEAWAY'  = ตะกร้าที่พนักงานคีย์ให้ลูกค้าซื้อกลับ
+ *
+ * เก็บใน localStorage เพื่อไม่ให้รายการที่คีย์ค้างไว้หายตอนเผลอรีเฟรชหน้า
+ * ยังไม่ส่งเข้าครัวจนกว่าจะกดยืนยัน จึงไม่ต้องขึ้นไปอยู่บน server
  */
 export type CartKey = string
 
-interface CustomerSession {
-  orderType: OrderType | null
-  tableNo: string | null
-  lastOrderId?: string | null
-}
-
 interface CartState {
   carts: Record<CartKey, CartItem[]>
-  session: CustomerSession
-  setSession: (s: Partial<CustomerSession>) => void
   addItem: (cart: CartKey, item: CartItem) => void
   setQty: (cart: CartKey, key: string, qty: number) => void
   clear: (cart: CartKey) => void
@@ -29,8 +23,6 @@ export const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       carts: {},
-      session: { orderType: null, tableNo: null },
-      setSession: (s) => set((st) => ({ session: { ...st.session, ...s } })),
       addItem: (cart, item) =>
         set((st) => {
           const list = st.carts[cart] ?? []

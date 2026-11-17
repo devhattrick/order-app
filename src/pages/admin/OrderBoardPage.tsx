@@ -7,6 +7,7 @@ import { Empty, OptionText } from '../../components/ui'
 import { BOARD_COLUMNS, ORDER_TYPE_LABEL, STATUS_META, nextStatus } from '../../data/constants'
 import { useAppStore } from '../../store/useAppStore'
 import { orderService } from '../../services'
+import { errorMessage } from '../../lib/apiClient'
 import { baht, minutesAgo, sameDay, timeOf } from '../../utils/format'
 import { toast } from '../../store/useToast'
 import { confirm } from '../../store/useConfirm'
@@ -39,11 +40,11 @@ export default function OrderBoardPage() {
 
   return (
     <>
-      <PageHeader title="ออเดอร์ในครัว" subtitle={`${today.length} ออเดอร์วันนี้ · อัปเดตอัตโนมัติเมื่อลูกค้าสั่งเข้ามา`} />
+      <PageHeader title="ออเดอร์ในครัว" subtitle={`${today.length} ออเดอร์ที่ยังไม่ปิด · อัปเดตอัตโนมัติเมื่อมีออเดอร์เข้ามา`} />
 
       {empty ? (
         <Empty icon={<ClipboardList className="h-7 w-7" />} title="ยังไม่มีออเดอร์ที่ต้องทำ">
-          ออเดอร์ใหม่จากลูกค้าและหน้าร้านจะเด้งขึ้นมาที่นี่ทันที
+          ออเดอร์ที่พนักงานส่งเข้าครัวจะเด้งขึ้นมาที่นี่ทันที
         </Empty>
       ) : (
         <div className="grid gap-4 px-4 pb-8 sm:px-8 lg:grid-cols-2 2xl:grid-cols-4">
@@ -129,8 +130,13 @@ function OrderCard({ order }: { order: Order }) {
                 cancelLabel: 'ไม่ยกเลิก',
               })
               if (!ok) return
-              orderService.updateStatus(order.id, 'CANCELLED')
-              toast(`ยกเลิก ${order.queueNo} แล้ว`)
+              try {
+                const updated = await orderService.updateStatus(order.id, 'CANCELLED')
+                useAppStore.getState().applyOrder(updated)
+                toast(`ยกเลิก ${order.queueNo} แล้ว`)
+              } catch (e) {
+                toast(errorMessage(e))
+              }
             }}
             className="btn-ghost px-3 py-2 text-sm"
           >
@@ -138,9 +144,14 @@ function OrderCard({ order }: { order: Order }) {
           </button>
           {next ? (
             <button
-              onClick={() => {
-                orderService.updateStatus(order.id, next.to)
-                toast(`${order.queueNo} → ${STATUS_META[next.to].label}`)
+              onClick={async () => {
+                try {
+                  const updated = await orderService.updateStatus(order.id, next.to)
+                  useAppStore.getState().applyOrder(updated)
+                  toast(`${order.queueNo} → ${STATUS_META[next.to].label}`)
+                } catch (e) {
+                  toast(errorMessage(e))
+                }
               }}
               className="btn-primary px-4 py-2 text-sm"
             >

@@ -13,6 +13,15 @@ export type OrderStatus = 'PENDING' | 'PREPARING' | 'READY' | 'SERVED' | 'COMPLE
 
 export type OrderSource = 'CUSTOMER' | 'POS'
 
+export type Role = 'ADMIN' | 'STAFF'
+
+/** ผู้ใช้ที่ login อยู่ — มาจาก GET /api/auth/me */
+export interface UserProfile {
+  username: string
+  displayName: string
+  role: Role
+}
+
 export interface OptionChoice {
   id: string
   name: string
@@ -78,12 +87,16 @@ export interface OrderItem {
 export interface StatusLog {
   status: OrderStatus
   at: string
+  /** username ของคนที่กดเปลี่ยนสถานะ — ไม่มีกรณีเป็นสถานะแรกตอนสร้างออเดอร์ */
+  changedBy?: string | null
 }
 
 export interface Order {
   id: string
   orderNo: string
   queueNo: string
+  /** token สุ่มสำหรับทำ QR ให้ลูกค้าติดตามสถานะโดยไม่ต้อง login */
+  trackingToken: string
   orderType: OrderType
   tableNo: string | null
   items: OrderItem[]
@@ -101,4 +114,34 @@ export interface Order {
 export interface Table {
   tableNo: string
   seats: number
+}
+
+/**
+ * ออเดอร์เวอร์ชันที่ลูกค้าเห็นตอนสแกน QR — GET /api/public/orders/{trackingToken}
+ * ตัดข้อมูลภายในออกหมด เหลือเท่าที่ลูกค้าควรเห็น
+ */
+export interface PublicOrder {
+  orderNo: string
+  queueNo: string
+  orderType: OrderType
+  tableNo: string | null
+  status: OrderStatus
+  totalAmount: number
+  paid: boolean
+  createdAt: string
+  items: { menuName: string; qty: number; lineTotal: number; options: string[] }[]
+  timeline: { status: OrderStatus; at: string }[]
+}
+
+/** ข้อมูลทั้งหน้า Dashboard — GET /api/dashboard/summary */
+export interface DashboardSummary {
+  revenueToday: number
+  ordersToday: number
+  averagePerOrderToday: number
+  dineInSharePercent: number
+  availableMenuCount: number
+  dailySales: { date: string; revenue: number; orders: number }[]
+  hourlyOrders: { hour: number; averageOrders: number }[]
+  salesByCategory: { category: Category; revenue: number }[]
+  topMenus: { menuName: string; qty: number; revenue: number }[]
 }

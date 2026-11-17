@@ -3,12 +3,17 @@ import { Plus, Trash2 } from 'lucide-react'
 import type { OptionChoice, OptionGroup } from '../types'
 import { Modal, Req } from './ui'
 import { useAppStore } from '../store/useAppStore'
-import { optionGroupService } from '../services'
+import { optionGroupService, tempChoiceId } from '../services'
 import { toast } from '../store/useToast'
 import { confirm } from '../store/useConfirm'
-import { uid } from '../utils/format'
+import { errorMessage } from '../lib/apiClient'
 
-const newChoice = (): OptionChoice => ({ id: `c-${uid().slice(0, 6)}`, name: '', priceDelta: 0 })
+/**
+ * ตัวเลือกที่เพิ่งกดเพิ่มในฟอร์มยังไม่มี id จริง
+ * ใส่ id ชั่วคราวไว้ก่อนเพื่อใช้เป็น key ของ React และผูกกับปุ่ม radio ค่าเริ่มต้น
+ * ตอนส่งขึ้น server จะถูกแปลงเป็น null ให้ server ออก UUID จริงมาแทน (ดู services)
+ */
+const newChoice = (): OptionChoice => ({ id: tempChoiceId(), name: '', priceDelta: 0 })
 
 interface Props {
   /** 'NEW' = สร้างใหม่ · OptionGroup = แก้ไข · null = ปิด */
@@ -48,18 +53,28 @@ export function OptionGroupModal({ editing, onClose, onCreated }: Props) {
   /** เมนูที่ผูกกลุ่มนี้อยู่ — แก้ไขแล้วกระทบทุกตัว ต้องเตือนให้เห็น */
   const usedBy = current ? menus.filter((m) => m.optionGroupIds.includes(current.id)) : []
 
-  const save = () => {
-    const group = optionGroupService.save({
-      id: current?.id,
-      name: form.name.trim(),
-      type: form.type,
-      required: form.required,
-      defaultChoiceId: form.type === 'SINGLE' ? form.defaultChoiceId : undefined,
-      choices: filled.map((c) => ({ ...c, name: c.name.trim(), priceDelta: Number(c.priceDelta) || 0 })),
-    })
-    toast(current ? `อัปเดต "${group.name}" แล้ว` : `สร้างตัวเลือก "${group.name}" แล้ว`)
-    if (!current) onCreated?.(group)
-    onClose()
+  const [saving, setSaving] = useState(false)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const group = await optionGroupService.save({
+        id: current?.id,
+        name: form.name.trim(),
+        type: form.type,
+        required: form.required,
+        defaultChoiceId: form.type === 'SINGLE' ? form.defaultChoiceId : undefined,
+        choices: filled.map((c) => ({ ...c, name: c.name.trim(), priceDelta: Number(c.priceDelta) || 0 })),
+      })
+      await useAppStore.getState().refreshOptionGroups()
+      toast(current ? `อัปเดต "${group.name}" แล้ว` : `สร้างตัวเลือก "${group.name}" แล้ว`)
+      if (!current) onCreated?.(group)
+      onClose()
+    } catch (e) {
+      toast(errorMessage(e))
+    } finally {
+      setSaving(false)
+    }
   }
 
   const remove = async () => {
@@ -72,9 +87,18 @@ export function OptionGroupModal({ editing, onClose, onCreated }: Props) {
       confirmLabel: 'ลบตัวเลือก',
     })
     if (!ok) return
-    optionGroupService.remove(current.id)
-    toast(`ลบ "${current.name}" แล้ว`)
-    onClose()
+    try {
+      await optionGroupService.remove(current.id)
+      // เมนูที่เคยผูกกลุ่มนี้ไว้ถูก server ถอดออกให้แล้ว จึงต้องโหลดเมนูใหม่ด้วย
+      await Promise.all([
+        useAppStore.getState().refreshOptionGroups(),
+        useAppStore.getState().refreshMenus(),
+      ])
+      toast(`ลบ "${current.name}" แล้ว`)
+      onClose()
+    } catch (e) {
+      toast(errorMessage(e))
+    }
   }
 
   return (
@@ -184,7 +208,7 @@ export function OptionGroupModal({ editing, onClose, onCreated }: Props) {
           <button onClick={remove} className="btn-danger px-4 py-3">ลบ</button>
         ) : null}
         <button onClick={onClose} className="btn-soft flex-1 py-3">ยกเลิก</button>
-        <button onClick={save} disabled={!valid} className="btn-primary flex-1 py-3 disabled:opacity-40">
+        <button onClick={save} disabled={!valid || saving} className="btn-primary flex-1 py-3 disabled:opacity-40">
           {current ? 'บันทึก' : 'สร้างตัวเลือก'}
         </button>
       </div>

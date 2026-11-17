@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# local env — อย่า commit ค่า API url ของเครื่องตัวเอง
+.env
+.env.local

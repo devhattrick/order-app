@@ -6,6 +6,8 @@ import { MenuThumb, Modal, Req } from '../../components/ui'
 import { CATEGORIES, categoryLabel } from '../../data/constants'
 import { useAppStore } from '../../store/useAppStore'
 import { menuService } from '../../services'
+import { errorMessage } from '../../lib/apiClient'
+import { useIsAdmin } from '../../store/useAuthStore'
 import { baht } from '../../utils/format'
 import { toast } from '../../store/useToast'
 import { confirm } from '../../store/useConfirm'
@@ -17,10 +19,38 @@ const EMOJI_CHOICES = ['🥐', '🍞', '🥯', '🥖', '🧁', '🍰', '🍪', '
 /** ร้านเพิ่ม/แก้ไขเมนูเองได้ — โดยเฉพาะเมนูขนมที่เปลี่ยนตามฤดูกาล */
 export default function MenuManagementPage() {
   const menus = useAppStore((s) => s.menus)
+  const refreshMenus = useAppStore((s) => s.refreshMenus)
+  // STAFF ดูเมนูและปิด/เปิดขายได้ (ของหมดหน้างาน) แต่เพิ่ม/แก้/ลบ ต้องเป็น ADMIN
+  const isAdmin = useIsAdmin()
   const [cat, setCat] = useState<Category | 'ALL'>('ALL')
   const [editing, setEditing] = useState<MenuItem | 'NEW' | null>(null)
 
   const visible = useMemo(() => (cat === 'ALL' ? menus : menus.filter((m) => m.category === cat)), [menus, cat])
+
+  const toggleAvailability = async (menu: MenuItem) => {
+    try {
+      const updated = await menuService.setAvailability(menu.id, !menu.isAvailable)
+      useAppStore.setState((st) => ({ menus: st.menus.map((m) => (m.id === updated.id ? updated : m)) }))
+    } catch (e) {
+      toast(errorMessage(e))
+    }
+  }
+
+  const removeMenu = async (menu: MenuItem) => {
+    const ok = await confirm({
+      title: `ลบเมนู ${menu.name}?`,
+      message: 'เมนูจะหายจากหน้าสั่งอาหารทันที — ถ้าแค่ของหมดชั่วคราว ให้ปิดสวิตช์ "เปิดขาย" แทน',
+      confirmLabel: 'ลบเมนู',
+    })
+    if (!ok) return
+    try {
+      await menuService.remove(menu.id)
+      await refreshMenus()
+      toast(`ลบ ${menu.name} แล้ว`)
+    } catch (e) {
+      toast(errorMessage(e))
+    }
+  }
 
   return (
     <>
@@ -28,9 +58,13 @@ export default function MenuManagementPage() {
         title="จัดการเมนู"
         subtitle={`${menus.length} เมนูในระบบ · ${menus.filter((m) => !m.isAvailable).length} เมนูปิดขายอยู่`}
         actions={
-          <button onClick={() => setEditing('NEW')} className="btn-primary flex items-center gap-2 px-4 py-2.5">
-            <Plus className="h-4 w-4" /> เพิ่มเมนูใหม่
-          </button>
+          isAdmin ? (
+            <button onClick={() => setEditing('NEW')} className="btn-primary flex items-center gap-2 px-4 py-2.5">
+              <Plus className="h-4 w-4" /> เพิ่มเมนูใหม่
+            </button>
+          ) : (
+            <p className="text-xs text-ink-mute">บัญชีพนักงานปิด/เปิดขายได้ · เพิ่มและแก้ไขเมนูต้องใช้บัญชีผู้จัดการ</p>
+          )
         }
       />
 
@@ -77,34 +111,27 @@ export default function MenuManagementPage() {
                       role="switch"
                       aria-checked={m.isAvailable}
                       aria-label={`เปิดขาย ${m.name}`}
-                      onClick={() => menuService.toggleAvailability(m.id)}
+                      onClick={() => void toggleAvailability(m)}
                       className={`inline-flex h-6 w-11 items-center rounded-full p-0.5 transition-colors ${m.isAvailable ? 'bg-lita-700' : 'bg-zinc-300'}`}
                     >
                       <span className={`h-5 w-5 rounded-full bg-white shadow transition-transform ${m.isAvailable ? 'translate-x-5' : ''}`} />
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex justify-end gap-1">
-                      <button onClick={() => setEditing(m)} aria-label={`แก้ไข ${m.name}`} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-lita-50 hover:text-lita-800">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const ok = await confirm({
-                            title: `ลบเมนู ${m.name}?`,
-                            message: 'เมนูจะหายจากหน้าสั่งอาหารทันที — ถ้าแค่ของหมดชั่วคราว ให้ปิดสวิตช์ "เปิดขาย" แทน',
-                            confirmLabel: 'ลบเมนู',
-                          })
-                          if (!ok) return
-                          menuService.remove(m.id)
-                          toast(`ลบ ${m.name} แล้ว`)
-                        }}
-                        aria-label={`ลบ ${m.name}`}
-                        className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-rose-50 hover:text-rose-600"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    {isAdmin ? (
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setEditing(m)} aria-label={`แก้ไข ${m.name}`} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-lita-50 hover:text-lita-800">
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => void removeMenu(m)}
+                          aria-label={`ลบ ${m.name}`}
+                          className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-rose-50 hover:text-rose-600"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -133,6 +160,7 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
     isAvailable: current?.isAvailable ?? true,
   }))
   const [uploading, setUploading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [editingGroup, setEditingGroup] = useState<OptionGroup | 'NEW' | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -152,16 +180,24 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
     }
   }
 
-  const save = () => {
-    menuService.save({
-      ...form,
-      name: form.name.trim(),
-      nameTh: form.nameTh.trim() || form.name.trim(),
-      imageUrl: form.imageUrl.trim() || undefined,
-      id: current?.id,
-    })
-    toast(current ? `อัปเดต ${form.name} แล้ว` : `เพิ่ม ${form.name} เข้าเมนูแล้ว`)
-    onClose()
+  const save = async () => {
+    setSaving(true)
+    try {
+      await menuService.save({
+        ...form,
+        name: form.name.trim(),
+        nameTh: form.nameTh.trim() || form.name.trim(),
+        imageUrl: form.imageUrl.trim() || undefined,
+        id: current?.id,
+      })
+      await useAppStore.getState().refreshMenus()
+      toast(current ? `อัปเดต ${form.name} แล้ว` : `เพิ่ม ${form.name} เข้าเมนูแล้ว`)
+      onClose()
+    } catch (e) {
+      toast(errorMessage(e))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -316,7 +352,8 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
 
       <div className="sticky bottom-0 flex gap-3 border-t border-line bg-white p-4">
         <button onClick={onClose} className="btn-soft flex-1 py-3">ยกเลิก</button>
-        <button onClick={save} disabled={!valid} className="btn-primary flex-1 py-3 disabled:opacity-40">
+        <button onClick={save} disabled={!valid || saving} className="btn-primary flex-1 justify-center py-3 disabled:opacity-40">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {current ? 'บันทึกการแก้ไข' : 'เพิ่มเมนู'}
         </button>
       </div>

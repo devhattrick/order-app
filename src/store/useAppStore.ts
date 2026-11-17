@@ -1,154 +1,75 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import type { CartItem, MenuItem, OptionGroup, Order, OrderSource, OrderStatus, OrderType } from '../types'
-import { SEED_MENUS, SEED_OPTION_GROUPS, buildSeedOrders } from '../data/seed'
-import { dateKey, formatOrderNo, formatQueueNo, uid } from '../utils/format'
+import { create } from "zustand";
+import { menuService, optionGroupService, orderService } from "../services";
+import type { MenuItem, OptionGroup, Order } from "../types";
 
-export interface CreateOrderInput {
-  orderType: OrderType
-  tableNo: string | null
-  items: CartItem[]
-  source: OrderSource
-  note?: string
-}
+/**
+ * ที่เก็บข้อมูลฝั่งหน้าจอ (cache ของข้อมูลจาก Backend)
+ * -------------------------------------------------------------
+ * ก่อนหน้านี้ store ตัวนี้เป็น "ฐานข้อมูลปลอม" เก็บใน localStorage
+ * ตอนนี้ Backend เป็นเจ้าของข้อมูลจริงแล้ว store จึงเหลือหน้าที่แค่
+ *   1. โหลดข้อมูลจาก API มาพักไว้ให้ทุกหน้าใช้ร่วมกัน
+ *   2. รับ event จาก SSE มาอัปเดตออเดอร์แบบ realtime
+ *
+ * orders ที่เก็บไว้คือ "ออเดอร์ที่ยังไม่ปิด" เท่านั้น (GET /api/orders/active)
+ * เพราะผังโต๊ะกับกระดานครัวใช้แค่ชุดนี้
+ * ส่วนประวัติย้อนหลังหน้า History ยิง API แยกพร้อม filter และแบ่งหน้าจาก server
+ */
 
 interface AppState {
-  menus: MenuItem[]
-  optionGroups: OptionGroup[]
-  orders: Order[]
-  createOrder: (input: CreateOrderInput) => Order
-  updateOrderStatus: (id: string, status: OrderStatus) => void
-  closeTable: (tableNo: string) => void
-  upsertMenu: (menu: Omit<MenuItem, 'id' | 'createdAt'> & { id?: string }) => MenuItem
-  upsertOptionGroup: (group: Omit<OptionGroup, 'id'> & { id?: string }) => OptionGroup
-  deleteOptionGroup: (id: string) => void
-  toggleMenuAvailability: (id: string) => void
-  deleteMenu: (id: string) => void
-  resetDemo: () => void
+  menus: MenuItem[];
+  optionGroups: OptionGroup[];
+  orders: Order[];
+  /** โหลดข้อมูลตั้งต้นเสร็จแล้วหรือยัง ใช้กันหน้าจอกระพริบตอนเปิดแอป */
+  ready: boolean;
+  error: string | null;
+
+  loadAll: () => Promise<void>;
+  refreshMenus: () => Promise<void>;
+  refreshOptionGroups: () => Promise<void>;
+  refreshOrders: () => Promise<void>;
+  /** เอาออเดอร์ที่เปลี่ยนแปลง (จาก API response หรือ SSE) มาใส่ในรายการ */
+  applyOrder: (order: Order) => void;
+  applyOrders: (orders: Order[]) => void;
+  reset: () => void;
 }
 
-const initialData = () => ({
-  menus: SEED_MENUS,
-  optionGroups: SEED_OPTION_GROUPS,
-  orders: buildSeedOrders(),
-})
+/** ออเดอร์ที่ปิดไปแล้วไม่ต้องค้างในหน้าจอหน้าร้าน — ไปดูที่หน้าประวัติแทน */
+const isOpen = (order: Order) => order.status !== "COMPLETED" && order.status !== "CANCELLED";
 
-export const STORAGE_KEY = 'lita-order-app'
+export const useAppStore = create<AppState>()((set, get) => ({
+  menus: [],
+  optionGroups: [],
+  orders: [],
+  ready: false,
+  error: null,
 
-export const useAppStore = create<AppState>()(
-  persist(
-    (set, get) => ({
-      ...initialData(),
+  loadAll: async () => {
+    try {
+      const [menus, optionGroups, orders] = await Promise.all([
+        menuService.list(),
+        optionGroupService.list(),
+        orderService.active(),
+      ]);
+      set({ menus, optionGroups, orders, ready: true, error: null });
+    } catch {
+      set({ ready: true, error: "โหลดข้อมูลจากเซิร์ฟเวอร์ไม่สำเร็จ" });
+    }
+  },
 
-      createOrder: ({ orderType, tableNo, items, source, note }) => {
-        const now = new Date()
-        const today = dateKey(now)
-        const todays = get().orders.filter((o) => dateKey(o.createdAt) === today)
-        const seqAll = todays.length + 1
-        const seqType = todays.filter((o) => o.orderType === orderType).length + 1
-        const menus = get().menus
-        const at = now.toISOString()
-        const order: Order = {
-          id: uid(),
-          orderNo: formatOrderNo(now, seqAll),
-          queueNo: formatQueueNo(orderType, seqType),
-          orderType,
-          tableNo: orderType === 'DINE_IN' ? tableNo : null,
-          items: items.map((c) => ({
-            menuId: c.menuId,
-            menuName: c.name,
-            category: menus.find((m) => m.id === c.menuId)?.category ?? 'SANDWICH',
-            emoji: c.emoji,
-            options: c.options,
-            unitPrice: c.unitPrice,
-            qty: c.qty,
-            lineTotal: c.unitPrice * c.qty,
-            note: c.note,
-          })),
-          totalAmount: items.reduce((s, c) => s + c.unitPrice * c.qty, 0),
-          status: 'PENDING',
-          source,
-          note,
-          // ซื้อกลับ = ชำระเงินตอนสั่งที่เคาน์เตอร์ก่อนเข้าครัว / ทานที่ร้าน = ชำระตอนเช็คบิล
-          paidAt: orderType === 'TAKEAWAY' ? at : null,
-          createdAt: at,
-          updatedAt: at,
-          statusHistory: [{ status: 'PENDING', at }],
-        }
-        set((s) => ({ orders: [...s.orders, order] }))
-        return order
-      },
+  refreshMenus: async () => set({ menus: await menuService.list() }),
 
-      updateOrderStatus: (id, status) => {
-        const at = new Date().toISOString()
-        set((s) => ({
-          orders: s.orders.map((o) =>
-            o.id === id ? { ...o, status, updatedAt: at, statusHistory: [...o.statusHistory, { status, at }] } : o,
-          ),
-        }))
-      },
+  refreshOptionGroups: async () => set({ optionGroups: await optionGroupService.list() }),
 
-      closeTable: (tableNo) => {
-        const at = new Date().toISOString()
-        set((s) => ({
-          orders: s.orders.map((o) =>
-            o.tableNo === tableNo && ['PENDING', 'PREPARING', 'READY', 'SERVED'].includes(o.status)
-              ? { ...o, status: 'COMPLETED', paidAt: o.paidAt ?? at, updatedAt: at, statusHistory: [...o.statusHistory, { status: 'COMPLETED', at }] }
-              : o,
-          ),
-        }))
-      },
+  refreshOrders: async () => set({ orders: await orderService.active() }),
 
-      upsertMenu: (input) => {
-        if (input.id) {
-          const updated = { ...get().menus.find((m) => m.id === input.id)!, ...input } as MenuItem
-          set((s) => ({ menus: s.menus.map((m) => (m.id === input.id ? updated : m)) }))
-          return updated
-        }
-        const created: MenuItem = { ...input, id: `m-${uid().slice(0, 8)}`, createdAt: new Date().toISOString() }
-        set((s) => ({ menus: [...s.menus, created] }))
-        return created
-      },
+  applyOrder: (order) => {
+    const rest = get().orders.filter((o) => o.id !== order.id);
+    set({ orders: isOpen(order) ? [...rest, order] : rest });
+  },
 
-      upsertOptionGroup: (input) => {
-        // กัน defaultChoiceId ชี้ไปยังตัวเลือกที่ถูกลบไปแล้ว
-        const clean = {
-          ...input,
-          defaultChoiceId: input.choices.some((c) => c.id === input.defaultChoiceId) ? input.defaultChoiceId : undefined,
-        }
-        if (input.id) {
-          const updated = { ...clean, id: input.id } as OptionGroup
-          set((s) => ({ optionGroups: s.optionGroups.map((g) => (g.id === input.id ? updated : g)) }))
-          return updated
-        }
-        const created: OptionGroup = { ...clean, id: `og-${uid().slice(0, 8)}` }
-        set((s) => ({ optionGroups: [...s.optionGroups, created] }))
-        return created
-      },
+  applyOrders: (orders) => {
+    for (const order of orders) get().applyOrder(order);
+  },
 
-      /** ลบกลุ่มตัวเลือก แล้วถอดออกจากทุกเมนูที่อ้างถึง (ออเดอร์เก่าไม่กระทบ เพราะเก็บ snapshot ไว้แล้ว) */
-      deleteOptionGroup: (id) =>
-        set((s) => ({
-          optionGroups: s.optionGroups.filter((g) => g.id !== id),
-          menus: s.menus.map((m) =>
-            m.optionGroupIds.includes(id) ? { ...m, optionGroupIds: m.optionGroupIds.filter((x) => x !== id) } : m,
-          ),
-        })),
-
-      toggleMenuAvailability: (id) =>
-        set((s) => ({ menus: s.menus.map((m) => (m.id === id ? { ...m, isAvailable: !m.isAvailable } : m)) })),
-
-      deleteMenu: (id) => set((s) => ({ menus: s.menus.filter((m) => m.id !== id) })),
-
-      resetDemo: () => set(initialData()),
-    }),
-    { name: STORAGE_KEY, version: 2 },
-  ),
-)
-
-// Sync ข้ามแท็บ: เปิดหน้าลูกค้ากับหน้าร้านคนละแท็บ แล้วข้อมูลอัปเดตตามกันทันที
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === STORAGE_KEY) useAppStore.persist.rehydrate()
-  })
-}
+  reset: () => set({ menus: [], optionGroups: [], orders: [], ready: false, error: null }),
+}));

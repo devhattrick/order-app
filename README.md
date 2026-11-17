@@ -1,17 +1,30 @@
-# Lita — Order App (Frontend Demo)
+# Lita — Order App (Frontend)
 
-Demo ระบบสั่งอาหารของร้านขนมปังซาวโดว์ **Lita** สำหรับนำเสนอ Business
-เป็น **Frontend อย่างเดียว** — ข้อมูลเก็บใน `localStorage` ของ browser ไม่ต้องมี Backend
+หน้าจอระบบสั่งอาหารของร้านขนมปังซาวโดว์ **Lita**
+ทำงานคู่กับ Backend ที่ repo [`order-app-api`](../order-app-api) (Spring Boot + PostgreSQL)
+
+ระบบนี้เป็น **ระบบหน้าร้าน** พนักงานต้อง Login ก่อนใช้งาน
+ลูกค้าไม่ได้สั่งอาหารเองผ่านเว็บ แต่ยัง **สแกน QR บนใบเสร็จเพื่อติดตามสถานะ** ได้โดยไม่ต้อง Login
 
 ---
 
 ## 1. วิธีรัน
 
+ต้องรัน Backend ก่อน (ดู `order-app-api/README.md`) แล้วค่อยรันหน้าเว็บ
+
 ```bash
+cp .env.example .env   # ตั้ง VITE_API_BASE_URL ให้ชี้ไปที่ Backend
 npm install
-npm run dev      # เปิด http://localhost:5173
-npm run build    # build ไป dist/
+npm run dev            # เปิด http://localhost:5173
+npm run build          # build ไป dist/
 ```
+
+### บัญชีสำหรับทดสอบ (Backend สร้างให้อัตโนมัติตอนสตาร์ทครั้งแรก)
+
+| Username | Password | สิทธิ์ | ทำอะไรได้ |
+|----------|----------|--------|-----------|
+| `admin` | `admin1234` | `ADMIN` | ทุกอย่าง รวม Dashboard และจัดการเมนู |
+| `staff` | `staff1234` | `STAFF` | ผังโต๊ะ · ครัว · ประวัติ · ปิด/เปิดขายเมนู |
 
 ### ทดสอบสแกน QR ด้วยมือถือจริง
 
@@ -26,30 +39,40 @@ npm run dev -- --host       # ให้ vite รับ connection จากเ�
 เพราะ QR สร้างจาก `window.location.origin` ของหน้าที่กำลังเปิดอยู่ — ถ้าเปิดด้วย localhost
 QR ก็จะฝัง localhost ไปด้วยและมือถือเปิดไม่ได้
 
-หรือ deploy ขึ้น GitHub Pages แล้วสแกนจาก URL จริงเลยก็ได้
+และต้องตั้ง 2 อย่างนี้ให้ตรงกันด้วย ไม่งั้นมือถือจะเรียก API ไม่ได้
+
+1. `VITE_API_BASE_URL=http://192.168.1.42:8080` ใน `.env`
+2. `CORS_ALLOWED_ORIGINS=http://192.168.1.42:5173` ตอนรัน Backend
 
 ---
 
 ## 2. Scope ที่ทำได้ใน Demo
 
-| # | Feature | หน้าจอ |
-|---|---------|--------|
-| 1 | ลูกค้าเลือก **ทานที่ร้าน / ซื้อกลับ** | `/` |
-| 2 | ทานที่ร้าน → **เลือกโต๊ะ T1–T10** (ซื้อกลับข้ามขั้นนี้) | `/table` |
-| 3 | เลือกเมนู + **Option เสริม** (Size / ความหวาน / ท็อปปิ้ง / ร้อน-เย็น) | `/menu` |
-| 4 | ตะกร้า + หมายเหตุถึงครัว + ยืนยันสั่ง | `/cart` |
-| 5 | **บัตรคิว + Timeline สถานะ** แบบ Real-time | `/order/:id` |
-| 6 | **ผังโต๊ะ 10 กล่อง** + พนักงานคีย์ออเดอร์แทนลูกค้า + เช็คบิล/เก็บโต๊ะ | `/admin/pos` |
-| 7 | **กระดานครัว** 4 คอลัมน์ รอรับ → กำลังทำ → พร้อมเสิร์ฟ → รอเช็คบิล | `/admin/orders` |
-| 7.1 | **ใบเสร็จ** เด้งอัตโนมัติเมื่อปิดออเดอร์ / เช็คบิลโต๊ะ · สั่งพิมพ์ได้ | ทุกหน้าที่ปิดบิล |
-| 7.2 | **QR บนใบเสร็จ** ลูกค้าสแกนติดตามสถานะออเดอร์เองได้ | ใบเสร็จออเดอร์เดี่ยว |
-| 7.3 | **เสียงแจ้งเตือนออเดอร์ใหม่** เผื่อพนักงานไม่ได้จ้องจอ | ทุกหน้าฝั่งร้าน |
-| 8 | **จัดการเมนู** — ร้านเพิ่ม/แก้ไข/ปิดขาย + **อัปโหลดรูปเมนู** เองได้ | `/admin/menu` |
-| 8.1 | **สร้าง/แก้ไขตัวเลือกเสริมเองได้** — กลุ่มตัวเลือกใช้ซ้ำข้ามเมนู | ในฟอร์มเมนู |
-| 9 | **ประวัติออเดอร์** + filter ช่วงวัน / สถานะ / ประเภท + ค้นหา | `/admin/history` |
-| 10 | **Dashboard** KPI + กราฟยอดขาย / ช่วงเวลา / หมวด / เมนูขายดี | `/admin/dashboard` |
+| # | Feature | หน้าจอ | สิทธิ์ |
+|---|---------|--------|--------|
+| 1 | **Login** ด้วย username/password → ได้ JWT เก็บใน `localStorage` | `/login` | สาธารณะ |
+| 2 | **ติดตามสถานะออเดอร์** — ลูกค้าสแกน QR บนใบเสร็จ ไม่ต้อง Login | `/track/:token` | สาธารณะ |
+| 3 | **ผังโต๊ะ 10 กล่อง** + พนักงานคีย์ออเดอร์ + เช็คบิล/เก็บโต๊ะ | `/admin/pos` | ADMIN · STAFF |
+| 4 | **กระดานครัว** 4 คอลัมน์ รอรับ → กำลังทำ → พร้อมเสิร์ฟ → รอเช็คบิล · อัปเดตสดด้วย SSE | `/admin/orders` | ADMIN · STAFF |
+| 4.1 | **ใบเสร็จ** เด้งอัตโนมัติเมื่อปิดออเดอร์ / เช็คบิลโต๊ะ · สั่งพิมพ์ได้ | ทุกหน้าที่ปิดบิล | ADMIN · STAFF |
+| 4.2 | **QR บนใบเสร็จ** ลูกค้าสแกนติดตามสถานะออเดอร์เองได้ | ใบเสร็จออเดอร์เดี่ยว | — |
+| 4.3 | **เสียงแจ้งเตือนออเดอร์ใหม่** เผื่อพนักงานไม่ได้จ้องจอ | ทุกหน้าฝั่งร้าน | ADMIN · STAFF |
+| 5 | **ปิด/เปิดขายเมนู** ตอนของหมดหน้างาน | `/admin/menu` | ADMIN · STAFF |
+| 5.1 | **เพิ่ม / แก้ไข / ลบเมนู** + อัปโหลดรูป | `/admin/menu` | **ADMIN เท่านั้น** |
+| 5.2 | **สร้าง/แก้ไขตัวเลือกเสริม** — กลุ่มตัวเลือกใช้ซ้ำข้ามเมนู | ในฟอร์มเมนู | **ADMIN เท่านั้น** |
+| 6 | **ประวัติออเดอร์** + filter ช่วงวัน / สถานะ / ประเภท + ค้นหา (แบ่งหน้าจาก server) | `/admin/history` | ADMIN · STAFF |
+| 7 | **Dashboard** KPI + กราฟยอดขาย / ช่วงเวลา / หมวด / เมนูขายดี | `/admin/dashboard` | **ADMIN เท่านั้น** |
 
-ปุ่มสลับมุมมอง **ลูกค้า / ร้าน** อยู่มุมขวาบนทุกหน้า (ใช้แทน Login ใน Demo)
+### การบังคับสิทธิ์ (Role Permission)
+
+บังคับ **2 ชั้น** โดยเจตนา
+
+| ชั้น | ที่ไหน | ทำอะไร |
+|------|--------|--------|
+| UI | `RequireAuth` + `useIsAdmin()` | ซ่อนเมนูและปุ่มที่ STAFF ใช้ไม่ได้ เพื่อไม่ให้กดแล้วเจอ error |
+| API | `SecurityConfig` ฝั่ง Backend | บังคับจริง — ต่อให้พิมพ์ URL ตรงหรือยิง API เอง ก็ได้ `403` กลับไป |
+
+ชั้น UI เป็นแค่ประสบการณ์ใช้งาน **ไม่ใช่ security** — ความปลอดภัยอยู่ที่ชั้น API เท่านั้น
 
 ---
 
@@ -115,45 +138,65 @@ QR ก็จะฝัง localhost ไปด้วยและมือถือ
 
 ```
 src/
-├── types/          Domain Model ทั้งหมด (Order, MenuItem, OptionGroup, …)
-├── data/
-│   ├── constants   โต๊ะ / หมวดหมู่ / สี-ป้ายสถานะ / Status Flow
-│   └── seed        เมนูเริ่มต้น 19 รายการ + ประวัติออเดอร์ย้อนหลัง 14 วัน
-├── store/          Zustand + persist (localStorage) + sync ข้ามแท็บ
-├── services/       ★ Mock Service Layer — จุดเดียวที่ต้องแก้ตอนต่อ Backend
+├── types/          Domain Model ทั้งหมด (Order, MenuItem, OptionGroup, UserProfile, …)
+├── lib/
+│   └── apiClient   ★ fetch wrapper — แนบ JWT, แปลง error, จับ 401
+├── data/constants  โต๊ะ / หมวดหมู่ / สี-ป้ายสถานะ / Status Flow
+├── services/       ★ เรียก REST ทุกตัว + แปลง DTO → model ของ UI
+├── store/
+│   ├── useAuthStore  token + ผู้ใช้ที่ login อยู่
+│   ├── useAppStore   cache เมนู / ตัวเลือกเสริม / ออเดอร์ที่ยังไม่ปิด
+│   └── useCartStore  ตะกร้าที่พนักงานกำลังคีย์ (ยังไม่ส่งเข้าครัว)
+├── hooks/
+│   ├── useOrderStream   รับออเดอร์ realtime ผ่าน SSE
+│   └── useNewOrderAlert เสียง + toast ตอนมีออเดอร์ใหม่
 ├── components/     UI ที่ใช้ซ้ำ (MenuBrowser, ItemOptionsModal, Modal, …)
-├── app/            Router + Layout ฝั่งลูกค้า / ฝั่งร้าน
+├── app/            Router + RequireAuth + Layout ฝั่งร้าน
 └── pages/
-    ├── customer/   5 หน้า
-    └── admin/      5 หน้า
+    ├── LoginPage   เข้าสู่ระบบ
+    ├── TrackPage   ลูกค้าติดตามสถานะ (สาธารณะ)
+    └── admin/      5 หน้าฝั่งร้าน
 ```
 
-### จุดต่อ Backend (Spring Boot)
+### Service → Endpoint
 
-`src/services/index.ts` เขียนแยกไว้แล้ว โดยคอมเมนต์ REST endpoint ที่ตั้งใจจะ map ไว้ทุกตัว
-เปลี่ยนเฉพาะไฟล์นี้เป็น `fetch` / `axios` ได้เลย **โดย UI ไม่ต้องแก้**
+ทุก request ผ่าน `src/lib/apiClient.ts` ที่เดียว (แนบ JWT และแปลง error ให้แล้ว)
 
-| Function | Endpoint ที่ตั้งใจไว้ |
-|----------|----------------------|
+| Function | Endpoint |
+|----------|----------|
+| `authService.login` | `POST /api/auth/login` |
+| `authService.me` | `GET /api/auth/me` |
+| `menuService.list` | `GET /api/menus` |
+| `menuService.save` | `POST /api/menus` · `PUT /api/menus/{id}` |
+| `menuService.setAvailability` | `PATCH /api/menus/{id}/availability` |
+| `menuService.remove` | `DELETE /api/menus/{id}` |
+| `optionGroupService.list` | `GET /api/option-groups` |
+| `optionGroupService.save` | `POST /api/option-groups` · `PUT /api/option-groups/{id}` |
+| `optionGroupService.remove` | `DELETE /api/option-groups/{id}` |
+| `orderService.active` | `GET /api/orders/active` |
 | `orderService.create` | `POST /api/orders` |
 | `orderService.updateStatus` | `PATCH /api/orders/{id}/status` |
 | `orderService.closeTable` | `POST /api/tables/{tableNo}/close` |
-| `menuService.save` | `POST /api/menus` · `PUT /api/menus/{id}` |
-| `menuService.toggleAvailability` | `PATCH /api/menus/{id}/availability` |
-| `menuService.remove` | `DELETE /api/menus/{id}` |
-| `optionGroupService.save` | `POST /api/option-groups` · `PUT /api/option-groups/{id}` |
-| `optionGroupService.remove` | `DELETE /api/option-groups/{id}` |
-| `getTableState` | `GET /api/tables` |
+| `orderService.search` | `GET /api/orders` (filter + paging) |
+| `publicOrderService.track` | `GET /api/public/orders/{trackingToken}` |
+| `dashboardService.summary` | `GET /api/dashboard/summary` |
+| `useOrderStream` | `GET /api/orders/stream` (SSE) |
+
+**หมายเหตุเรื่องราคา** — `POST /api/orders` ส่งไปแค่ `menuId` / `qty` / ตัวเลือก
+ไม่ส่งราคาเลย เพราะ Backend คำนวณใหม่เองจากฐานข้อมูล ป้องกันการแก้ราคาผ่าน API
 
 ---
 
-## 5. ข้อจำกัดของ Demo (ต้องบอก Business ก่อนนำเสนอ)
+## 5. ข้อจำกัดที่ยังเหลืออยู่
 
-- ไม่มี Login / สิทธิ์ผู้ใช้ — ใช้ปุ่มสลับมุมมองแทน
-- ไม่มีระบบชำระเงินจริง — "เช็คบิล" คือปิดสถานะออเดอร์เท่านั้น
-- ข้อมูลอยู่ใน browser เครื่องนั้น ๆ — คนละเครื่อง/คนละ browser ไม่เห็นข้อมูลกัน
-  (ถ้าเปิดสองแท็บใน browser เดียวกัน ข้อมูลจะ sync กันทันที ใช้ Demo ลูกค้า ↔ ร้าน ได้)
-- ปุ่ม **รีเซ็ตข้อมูล Demo** (ในแถบด้านซ้ายของฝั่งร้าน) ล้างกลับไปเป็นข้อมูลตัวอย่างเริ่มต้น
+- ไม่มีระบบชำระเงินจริง — "เช็คบิล" คือปิดสถานะออเดอร์เท่านั้น ยังไม่ต่อ payment gateway
+- เก็บ JWT ไว้ใน `localStorage` — สะดวกและใช้ได้กับ static hosting
+  แต่ถ้าหน้าเว็บโดน XSS token จะถูกอ่านได้ ถ้าต้องการแน่นกว่านี้ต้องย้ายไป httpOnly cookie
+  ซึ่งต้องเปลี่ยนทั้ง CORS และวิธี deploy
+- Token อายุ 12 ชั่วโมง ยังไม่มี refresh token — หมดอายุแล้วต้อง login ใหม่
+- รูปเมนูเก็บเป็น data URL ใน database — เหมาะกับสาขาเดียว
+  ถ้าเมนูเยอะขึ้นควรย้ายไป object storage (Cloudflare R2)
+- ยังไม่ได้ต่อเครื่องพิมพ์ใบเสร็จ — ใช้ `window.print()` ของเบราว์เซอร์
 
 ---
 
@@ -172,8 +215,15 @@ URL ที่ได้: `https://devhattrick.github.io/order-app/`
 
 > ใช้ `HashRouter` และตั้ง `base: '/order-app/'` ไว้แล้ว เพื่อไม่ให้ refresh หน้าใน GitHub Pages เจอ 404
 
+**สำคัญ** — `VITE_API_BASE_URL` ถูกฝังตอน build ไม่ใช่ตอนรัน
+ต้องตั้งเป็น GitHub Actions secret/variable แล้วส่งเข้า step ที่ `npm run build`
+ไม่งั้นหน้าเว็บที่ deploy แล้วจะยิงไปหา `localhost:8080` ของเครื่องผู้ใช้
+และอย่าลืมใส่ domain ของหน้าเว็บลงใน `CORS_ALLOWED_ORIGINS` ของ Backend ด้วย
+
 ---
 
 ## 7. Stack
 
-React 19 · Vite 8 · TypeScript · TailwindCSS 3 · Zustand (persist) · Recharts · lucide-react · qrcode · Web Audio API
+React 19 · Vite 8 · TypeScript · TailwindCSS 3 · Zustand · Recharts · lucide-react · qrcode · Web Audio API · EventSource (SSE)
+
+Backend: Java 21 · Spring Boot 3.5 · Spring Security (JWT) · Spring Data JPA · Flyway · PostgreSQL 16

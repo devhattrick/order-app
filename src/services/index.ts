@@ -1,63 +1,279 @@
 /**
- * Mock Service Layer
+ * Service Layer — จุดเดียวที่คุยกับ Backend
  * -------------------------------------------------------------
- * ตอนนี้ทุก function อ่าน/เขียนผ่าน zustand store (persist ลง localStorage)
- * เมื่อมี Backend (Spring Boot) จริง ให้เปลี่ยน implementation ในไฟล์นี้
- * เป็น fetch/axios ตาม Endpoint ที่ระบุใน comment โดย UI ไม่ต้องแก้
+ * หน้าที่ของไฟล์นี้มี 2 อย่าง
+ *   1. เรียก REST endpoint ตาม contract ของ Spring Boot
+ *   2. แปลง DTO ฝั่ง server ให้เป็น model ที่ UI ใช้อยู่แล้ว (ดู toMenuItem)
+ *
+ * ทำ mapping ไว้ที่นี่ที่เดียว เพื่อให้หน้าจอไม่ต้องรู้ว่า API เรียกชื่อ field ว่าอะไร
+ * ถ้าวันหลัง backend เปลี่ยนชื่อ field ก็แก้แค่ไฟล์นี้
  */
-import { useAppStore, type CreateOrderInput } from '../store/useAppStore'
-import type { MenuItem, OptionGroup, Order, OrderStatus } from '../types'
-import { ACTIVE_STATUSES } from '../data/constants'
+import { api, toQuery } from "../lib/apiClient";
+import type {
+  CartItem,
+  DashboardSummary,
+  MenuItem,
+  OptionGroup,
+  Order,
+  OrderStatus,
+  OrderType,
+  PublicOrder,
+  UserProfile,
+} from "../types";
+import { ACTIVE_STATUSES } from "../data/constants";
 
-const store = () => useAppStore.getState()
+/* ---------------------------------------------------------------- *
+ * DTO ฝั่ง server (เฉพาะส่วนที่หน้าตาไม่ตรงกับ model ของ UI)
+ * ---------------------------------------------------------------- */
 
-export const orderService = {
-  /** POST /api/orders */
-  create: (input: CreateOrderInput): Order => store().createOrder(input),
-  /** PATCH /api/orders/{id}/status */
-  updateStatus: (id: string, status: OrderStatus) => store().updateOrderStatus(id, status),
-  /** POST /api/tables/{tableNo}/close */
-  closeTable: (tableNo: string) => store().closeTable(tableNo),
+interface MenuItemDto {
+  id: string;
+  name: string;
+  nameTh: string;
+  description: string | null;
+  price: number;
+  category: MenuItem["category"];
+  emoji: string | null;
+  imageUrl: string | null;
+  available: boolean;
+  optionGroups: OptionGroup[];
+}
+
+/**
+ * server ส่งกลุ่มตัวเลือกมาเต็มก้อนในแต่ละเมนู แต่ UI เดิมเก็บแค่ id
+ * แล้วไปหยิบรายละเอียดจาก store (เพราะกลุ่มเดียวใช้ซ้ำหลายเมนู)
+ * จึงย่อให้เหลือ id ตรงนี้
+ */
+function toMenuItem(dto: MenuItemDto): MenuItem {
+  return {
+    id: dto.id,
+    name: dto.name,
+    nameTh: dto.nameTh ?? "",
+    description: dto.description ?? "",
+    price: dto.price,
+    category: dto.category,
+    emoji: dto.emoji ?? "🍽️",
+    imageUrl: dto.imageUrl ?? undefined,
+    optionGroupIds: dto.optionGroups.map((g) => g.id),
+    isAvailable: dto.available,
+    createdAt: "",
+  };
+}
+
+/** ตัวเลือกที่เพิ่งสร้างในฟอร์มยังไม่มี id จริง — ส่ง null ให้ server ออก UUID ให้ */
+const TEMP_ID_PREFIX = "tmp-";
+export const tempChoiceId = () => `${TEMP_ID_PREFIX}${Math.random().toString(36).slice(2, 10)}`;
+const toServerId = (id: string | undefined) => (!id || id.startsWith(TEMP_ID_PREFIX) ? null : id);
+
+/* ---------------------------------------------------------------- *
+ * Auth
+ * ---------------------------------------------------------------- */
+
+export interface LoginResult {
+  token: string;
+  expiresInSeconds: number;
+  user: UserProfile;
+}
+
+export const authService = {
+  /** POST /api/auth/login */
+  login: (username: string, password: string) =>
+    api.post<LoginResult>("/api/auth/login", { username, password }),
+
+  /** GET /api/auth/me — ใช้เช็คตอนเปิดแอปว่า token ที่เก็บไว้ยังใช้ได้ */
+  me: () => api.get<UserProfile>("/api/auth/me"),
+};
+
+/* ---------------------------------------------------------------- *
+ * Menu
+ * ---------------------------------------------------------------- */
+
+export interface SaveMenuInput {
+  id?: string;
+  name: string;
+  nameTh: string;
+  description: string;
+  price: number;
+  category: MenuItem["category"];
+  emoji: string;
+  imageUrl?: string;
+  optionGroupIds: string[];
+  isAvailable: boolean;
 }
 
 export const menuService = {
-  /** POST /api/menus  |  PUT /api/menus/{id} */
-  save: (menu: Omit<MenuItem, 'id' | 'createdAt'> & { id?: string }) => store().upsertMenu(menu),
-  /** PATCH /api/menus/{id}/availability */
-  toggleAvailability: (id: string) => store().toggleMenuAvailability(id),
-  /** DELETE /api/menus/{id} */
-  remove: (id: string) => store().deleteMenu(id),
+  /** GET /api/menus */
+  list: async (): Promise<MenuItem[]> => (await api.get<MenuItemDto[]>("/api/menus")).map(toMenuItem),
+
+  /** POST /api/menus (สร้าง) | PUT /api/menus/{id} (แก้ไข) — ADMIN เท่านั้น */
+  save: async (input: SaveMenuInput): Promise<MenuItem> => {
+    const body = {
+      name: input.name,
+      nameTh: input.nameTh,
+      description: input.description,
+      price: input.price,
+      category: input.category,
+      emoji: input.emoji,
+      imageUrl: input.imageUrl ?? null,
+      available: input.isAvailable,
+      optionGroupIds: input.optionGroupIds,
+    };
+    const dto = input.id
+      ? await api.put<MenuItemDto>(`/api/menus/${input.id}`, body)
+      : await api.post<MenuItemDto>("/api/menus", body);
+    return toMenuItem(dto);
+  },
+
+  /** PATCH /api/menus/{id}/availability — STAFF ทำได้ เพราะเป็นงานหน้างานตอนของหมด */
+  setAvailability: async (id: string, available: boolean): Promise<MenuItem> =>
+    toMenuItem(await api.patch<MenuItemDto>(`/api/menus/${id}/availability`, { available })),
+
+  /** DELETE /api/menus/{id} — ADMIN เท่านั้น */
+  remove: (id: string) => api.del<void>(`/api/menus/${id}`),
+};
+
+/* ---------------------------------------------------------------- *
+ * Option group
+ * ---------------------------------------------------------------- */
+
+export interface SaveOptionGroupInput {
+  id?: string;
+  name: string;
+  type: OptionGroup["type"];
+  required: boolean;
+  defaultChoiceId?: string;
+  choices: { id?: string; name: string; priceDelta: number }[];
 }
 
 export const optionGroupService = {
-  /** POST /api/option-groups  |  PUT /api/option-groups/{id} */
-  save: (group: Omit<OptionGroup, 'id'> & { id?: string }) => store().upsertOptionGroup(group),
-  /** DELETE /api/option-groups/{id} */
-  remove: (id: string) => store().deleteOptionGroup(id),
+  /** GET /api/option-groups */
+  list: () => api.get<OptionGroup[]>("/api/option-groups"),
+
+  /** POST /api/option-groups | PUT /api/option-groups/{id} — ADMIN เท่านั้น */
+  save: (input: SaveOptionGroupInput): Promise<OptionGroup> => {
+    const body = {
+      name: input.name,
+      type: input.type,
+      required: input.required,
+      defaultChoiceId: toServerId(input.defaultChoiceId),
+      choices: input.choices.map((c) => ({
+        id: toServerId(c.id),
+        name: c.name,
+        priceDelta: c.priceDelta,
+      })),
+    };
+    return input.id
+      ? api.put<OptionGroup>(`/api/option-groups/${input.id}`, body)
+      : api.post<OptionGroup>("/api/option-groups", body);
+  },
+
+  /** DELETE /api/option-groups/{id} — ADMIN เท่านั้น */
+  remove: (id: string) => api.del<void>(`/api/option-groups/${id}`),
+};
+
+/* ---------------------------------------------------------------- *
+ * Order
+ * ---------------------------------------------------------------- */
+
+export interface CreateOrderInput {
+  orderType: OrderType;
+  tableNo: string | null;
+  items: CartItem[];
+  note?: string;
 }
 
-/* ---------- Selectors (ฝั่ง Backend = GET /api/tables) ---------- */
+export interface OrderSearchQuery {
+  from?: string;
+  to?: string;
+  status?: OrderStatus;
+  orderType?: OrderType;
+  keyword?: string;
+  page?: number;
+  size?: number;
+}
+
+/** ตรงกับ PageResponse<T> ฝั่ง Backend */
+export interface PagedOrders {
+  content: Order[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export const orderService = {
+  /** GET /api/orders/active — ออเดอร์ที่ยังไม่ปิด ใช้เป็นข้อมูลตั้งต้นของกระดานครัวและผังโต๊ะ */
+  active: () => api.get<Order[]>("/api/orders/active"),
+
+  /**
+   * POST /api/orders
+   * ส่งแค่ menuId / qty / ตัวเลือก — ไม่ส่งราคา เพราะ server คำนวณเองจาก database
+   * เพื่อไม่ให้ใครยิง API แก้ราคาได้
+   */
+  create: ({ orderType, tableNo, items, note }: CreateOrderInput) =>
+    api.post<Order>("/api/orders", {
+      orderType,
+      tableNo: orderType === "DINE_IN" ? tableNo : null,
+      note,
+      items: items.map((item) => ({
+        menuId: item.menuId,
+        qty: item.qty,
+        note: item.note,
+        options: item.options.map((o) => ({ groupId: o.groupId, choiceId: o.choiceId })),
+      })),
+    }),
+
+  /** PATCH /api/orders/{id}/status */
+  updateStatus: (id: string, status: OrderStatus) =>
+    api.patch<Order>(`/api/orders/${id}/status`, { status }),
+
+  /** POST /api/tables/{tableNo}/close — ปิดบิลทุกออเดอร์ของโต๊ะพร้อมกัน */
+  closeTable: (tableNo: string) => api.post<Order[]>(`/api/tables/${tableNo}/close`),
+
+  /** GET /api/orders — ประวัติออเดอร์ มี filter และแบ่งหน้าจากฝั่ง server */
+  search: (query: OrderSearchQuery) => api.get<PagedOrders>(`/api/orders${toQuery({ ...query })}`),
+};
+
+/** GET /api/public/orders/{token} — ลูกค้าสแกน QR ดูสถานะ ไม่ต้อง login */
+export const publicOrderService = {
+  track: (trackingToken: string) => api.get<PublicOrder>(`/api/public/orders/${trackingToken}`),
+};
+
+/* ---------------------------------------------------------------- *
+ * Dashboard (ADMIN เท่านั้น — STAFF เรียกแล้วจะได้ 403)
+ * ---------------------------------------------------------------- */
+
+export const dashboardService = {
+  summary: (days = 14) => api.get<DashboardSummary>(`/api/dashboard/summary?days=${days}`),
+};
+
+/* ---------------------------------------------------------------- *
+ * Selector: สถานะโต๊ะ
+ * ---------------------------------------------------------------- *
+ * คำนวณจากออเดอร์ที่ store มีอยู่แล้ว ไม่ต้องยิง API เพิ่ม
+ * ทำให้ผังโต๊ะอัปเดตทันทีที่ SSE ส่งออเดอร์ใหม่เข้ามา
+ */
 
 export interface TableState {
-  tableNo: string
-  orders: Order[]
-  total: number
-  since: string | null
+  tableNo: string;
+  orders: Order[];
+  total: number;
+  since: string | null;
   /** สถานะที่ "ช้าที่สุด" ของโต๊ะ ใช้แสดงสีบนผัง */
-  stage: 'FREE' | OrderStatus
+  stage: "FREE" | OrderStatus;
 }
 
-const STAGE_RANK: OrderStatus[] = ['PENDING', 'PREPARING', 'READY', 'SERVED']
+const STAGE_RANK: OrderStatus[] = ["PENDING", "PREPARING", "READY", "SERVED"];
 
 export function getTableState(orders: Order[], tableNo: string): TableState {
-  const active = orders.filter((o) => o.tableNo === tableNo && ACTIVE_STATUSES.includes(o.status))
-  if (active.length === 0) return { tableNo, orders: [], total: 0, since: null, stage: 'FREE' }
-  const stage = STAGE_RANK.find((s) => active.some((o) => o.status === s)) ?? 'SERVED'
+  const active = orders.filter((o) => o.tableNo === tableNo && ACTIVE_STATUSES.includes(o.status));
+  if (active.length === 0) return { tableNo, orders: [], total: 0, since: null, stage: "FREE" };
+  const stage = STAGE_RANK.find((s) => active.some((o) => o.status === s)) ?? "SERVED";
   return {
     tableNo,
     orders: active,
-    total: active.reduce((s, o) => s + o.totalAmount, 0),
+    total: active.reduce((sum, o) => sum + o.totalAmount, 0),
     since: active.map((o) => o.createdAt).sort()[0],
     stage,
-  }
+  };
 }

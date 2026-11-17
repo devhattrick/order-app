@@ -3,7 +3,7 @@ import type { Order } from '../types'
 import { Modal, LoafMark } from './ui'
 import { QrCode } from './QrCode'
 import { ORDER_TYPE_LABEL, SHOP_NAME, SHOP_TAGLINE } from '../data/constants'
-import { baht, dateOf, orderStatusUrl, timeOf } from '../utils/format'
+import { baht, dateOf, orderTrackUrl, timeOf } from '../utils/format'
 
 interface Props {
   /** 1 ใบ = 1 ออเดอร์ / หลายใบ = บิลรวมทั้งโต๊ะ */
@@ -70,9 +70,6 @@ export function ReceiptModal({ orders, onClose, onConfirm, confirmLabel = 'ป�
                 {tableNo ? ` · โต๊ะ ${tableNo}` : ''}
               </dd>
 
-              <dt className="text-ink-mute">ช่องทาง</dt>
-              <dd className="text-right">{first.source === 'POS' ? 'พนักงานคีย์' : 'ลูกค้าสั่งเอง'}</dd>
-
               <dt className="text-ink-mute">การชำระเงิน</dt>
               <dd className="text-right">{paid && first.paidAt ? `ชำระแล้ว ${timeOf(first.paidAt)}` : 'ยังไม่ชำระ'}</dd>
             </dl>
@@ -119,7 +116,7 @@ export function ReceiptModal({ orders, onClose, onConfirm, confirmLabel = 'ป�
 
             {trackable ? (
               <div className="flex items-center gap-4 border-t border-dashed border-zinc-300 py-4">
-                <QrCode value={orderStatusUrl(first)} size={104} className="shrink-0 rounded-lg" />
+                <QrCode value={orderTrackUrl(first)} size={104} className="shrink-0 rounded-lg" />
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-ink">สแกนเพื่อติดตามสถานะ</p>
                   <p className="mt-1 text-xs leading-relaxed text-ink-mute">
