@@ -125,14 +125,4 @@ export const api = {
   del: <T>(path: string) => request<T>("DELETE", path),
 };
 
-/**
- * url สำหรับ EventSource (SSE)
- * EventSource ใส่ header เองไม่ได้ จึงต้องส่ง token ไปทาง query string
- * ฝั่ง JwtAuthFilter รองรับทั้งสองทางอยู่แล้ว
- */
-export function streamUrl(path: string): string {
-  const token = readToken();
-  return `${BASE_URL}${path}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-}
-
 export { BASE_URL };

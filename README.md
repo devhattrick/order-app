@@ -53,7 +53,7 @@ QR ก็จะฝัง localhost ไปด้วยและมือถือ
 | 1 | **Login** ด้วย username/password → ได้ JWT เก็บใน `localStorage` | `/login` | สาธารณะ |
 | 2 | **ติดตามสถานะออเดอร์** — ลูกค้าสแกน QR บนใบเสร็จ ไม่ต้อง Login | `/track/:token` | สาธารณะ |
 | 3 | **ผังโต๊ะ 10 กล่อง** + พนักงานคีย์ออเดอร์ + เช็คบิล/เก็บโต๊ะ | `/admin/pos` | ADMIN · STAFF |
-| 4 | **กระดานครัว** 4 คอลัมน์ รอรับ → กำลังทำ → พร้อมเสิร์ฟ → รอเช็คบิล · อัปเดตสดด้วย SSE | `/admin/orders` | ADMIN · STAFF |
+| 4 | **กระดานครัว** 4 คอลัมน์ รอรับ → กำลังทำ → พร้อมเสิร์ฟ → รอเช็คบิล · อัปเดตเองทุก 5 วินาที | `/admin/orders` | ADMIN · STAFF |
 | 4.1 | **ใบเสร็จ** เด้งอัตโนมัติเมื่อปิดออเดอร์ / เช็คบิลโต๊ะ · สั่งพิมพ์ได้ | ทุกหน้าที่ปิดบิล | ADMIN · STAFF |
 | 4.2 | **QR บนใบเสร็จ** ลูกค้าสแกนติดตามสถานะออเดอร์เองได้ | ใบเสร็จออเดอร์เดี่ยว | — |
 | 4.3 | **เสียงแจ้งเตือนออเดอร์ใหม่** เผื่อพนักงานไม่ได้จ้องจอ | ทุกหน้าฝั่งร้าน | ADMIN · STAFF |
@@ -148,7 +148,7 @@ src/
 │   ├── useAppStore   cache เมนู / ตัวเลือกเสริม / ออเดอร์ที่ยังไม่ปิด
 │   └── useCartStore  ตะกร้าที่พนักงานกำลังคีย์ (ยังไม่ส่งเข้าครัว)
 ├── hooks/
-│   ├── useOrderStream   รับออเดอร์ realtime ผ่าน SSE
+│   ├── useOrderPolling  ดึงออเดอร์ล่าสุดทุก 5 วิ · หยุดเมื่อแท็บถูกซ่อน
 │   └── useNewOrderAlert เสียง + toast ตอนมีออเดอร์ใหม่
 ├── components/     UI ที่ใช้ซ้ำ (MenuBrowser, ItemOptionsModal, Modal, …)
 ├── app/            Router + RequireAuth + Layout ฝั่งร้าน
@@ -180,7 +180,7 @@ src/
 | `orderService.search` | `GET /api/orders` (filter + paging) |
 | `publicOrderService.track` | `GET /api/public/orders/{trackingToken}` |
 | `dashboardService.summary` | `GET /api/dashboard/summary` |
-| `useOrderStream` | `GET /api/orders/stream` (SSE) |
+| `useOrderPolling` | `GET /api/orders/active` (ทุก 5 วินาที) |
 
 **หมายเหตุเรื่องราคา** — `POST /api/orders` ส่งไปแค่ `menuId` / `qty` / ตัวเลือก
 ไม่ส่งราคาเลย เพราะ Backend คำนวณใหม่เองจากฐานข้อมูล ป้องกันการแก้ราคาผ่าน API
@@ -224,6 +224,6 @@ URL ที่ได้: `https://devhattrick.github.io/order-app/`
 
 ## 7. Stack
 
-React 19 · Vite 8 · TypeScript · TailwindCSS 3 · Zustand · Recharts · lucide-react · qrcode · Web Audio API · EventSource (SSE)
+React 19 · Vite 8 · TypeScript · TailwindCSS 3 · Zustand · Recharts · lucide-react · qrcode · Web Audio API
 
 Backend: Java 21 · Spring Boot 3.5 · Spring Security (JWT) · Spring Data JPA · Flyway · PostgreSQL 16

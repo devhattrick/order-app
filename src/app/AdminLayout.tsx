@@ -12,7 +12,7 @@ import { useEffect } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import { Logo } from "../components/ui";
 import { useNewOrderAlert } from "../hooks/useNewOrderAlert";
-import { useOrderStream } from "../hooks/useOrderStream";
+import { useOrderPolling } from "../hooks/useOrderPolling";
 import { useAppStore } from "../store/useAppStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { confirm } from "../store/useConfirm";
@@ -47,8 +47,8 @@ export function AdminLayout() {
     void loadAll();
   }, [loadAll]);
 
-  // เปิดช่องรับออเดอร์ใหม่แบบ realtime ไว้ตลอดที่อยู่ในหน้าร้าน
-  useOrderStream(true);
+  // ดึงออเดอร์ล่าสุดตามรอบ ตลอดเวลาที่อยู่ในหน้าร้าน
+  useOrderPolling(true);
 
   const nav = NAV.filter((item) => !item.adminOnly || user?.role === "ADMIN");
 
