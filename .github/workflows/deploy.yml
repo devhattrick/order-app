@@ -20,15 +20,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # VITE_API_BASE_URL ถูกฝังลงไฟล์ JS ตอน build ไม่ใช่อ่านตอนรัน
+      # ถ้าลืมตั้ง หน้าเว็บที่ deploy แล้วจะยิงไปหา localhost:8080 ของเครื่องผู้ใช้
+      # แล้วพังทั้งหน้าโดยไม่มี error ให้เห็นใน Actions — จึงต้องดักไว้ตรงนี้
+      - name: ตรวจว่าตั้ง VITE_API_BASE_URL แล้ว
+        run: |
+          if [ -z "${{ vars.VITE_API_BASE_URL }}" ]; then
+            echo "::error::ยังไม่ได้ตั้ง repository variable VITE_API_BASE_URL"
+            echo "::error::ตั้งที่ Settings → Secrets and variables → Actions → Variables"
+            echo "::error::ค่าที่ต้องใส่คือ URL ของ Cloud Run เช่น https://order-app-api-xxxx.asia-southeast1.run.app"
+            exit 1
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          # ใช้ vars ไม่ใช่ secrets โดยตั้งใจ
+          # ค่านี้ถูกฝังลงไฟล์ JS ที่ใคร ๆ ก็เปิดอ่านได้อยู่แล้ว จึงไม่ใช่ความลับ
+          # เก็บเป็น secret จะทำให้เข้าใจผิดว่ามันถูกปกปิด
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
