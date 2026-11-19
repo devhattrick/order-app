@@ -12,6 +12,7 @@ import { api, toQuery } from "../lib/apiClient";
 import type {
   CartItem,
   DashboardSummary,
+  MenuCategory,
   MenuItem,
   OptionGroup,
   Order,
@@ -32,7 +33,7 @@ interface MenuItemDto {
   nameTh: string;
   description: string | null;
   price: number;
-  category: MenuItem["category"];
+  categoryId: string;
   emoji: string | null;
   imageUrl: string | null;
   available: boolean;
@@ -51,7 +52,7 @@ function toMenuItem(dto: MenuItemDto): MenuItem {
     nameTh: dto.nameTh ?? "",
     description: dto.description ?? "",
     price: dto.price,
-    category: dto.category,
+    categoryId: dto.categoryId,
     emoji: dto.emoji ?? "🍽️",
     imageUrl: dto.imageUrl ?? undefined,
     optionGroupIds: dto.optionGroups.map((g) => g.id),
@@ -85,6 +86,40 @@ export const authService = {
 };
 
 /* ---------------------------------------------------------------- *
+ * Menu category
+ * ---------------------------------------------------------------- *
+ * เดิมหมวดหมู่เป็นค่าตายตัวในโค้ด ตอนนี้อยู่ใน database แล้ว
+ * ร้านจึงเพิ่ม/แก้ชื่อ/ลบเองได้โดยไม่ต้อง deploy ใหม่
+ */
+
+export interface SaveCategoryInput {
+  id?: string;
+  name: string;
+  nameEn?: string;
+  sortOrder?: number;
+}
+
+export const categoryService = {
+  /** GET /api/categories */
+  list: () => api.get<MenuCategory[]>("/api/categories"),
+
+  /** POST /api/categories | PUT /api/categories/{id} — ADMIN เท่านั้น */
+  save: (input: SaveCategoryInput) => {
+    const body = {
+      name: input.name,
+      nameEn: input.nameEn || null,
+      sortOrder: input.sortOrder ?? null,
+    };
+    return input.id
+      ? api.put<MenuCategory>(`/api/categories/${input.id}`, body)
+      : api.post<MenuCategory>("/api/categories", body);
+  },
+
+  /** DELETE /api/categories/{id} — server ปฏิเสธถ้ายังมีเมนูใช้หมวดนี้อยู่ */
+  remove: (id: string) => api.del<void>(`/api/categories/${id}`),
+};
+
+/* ---------------------------------------------------------------- *
  * Menu
  * ---------------------------------------------------------------- */
 
@@ -94,7 +129,7 @@ export interface SaveMenuInput {
   nameTh: string;
   description: string;
   price: number;
-  category: MenuItem["category"];
+  categoryId: string;
   emoji: string;
   imageUrl?: string;
   optionGroupIds: string[];
@@ -112,7 +147,7 @@ export const menuService = {
       nameTh: input.nameTh,
       description: input.description,
       price: input.price,
-      category: input.category,
+      categoryId: input.categoryId,
       emoji: input.emoji,
       imageUrl: input.imageUrl ?? null,
       available: input.isAvailable,

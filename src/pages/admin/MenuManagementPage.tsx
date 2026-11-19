@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from 'react'
-import { ImagePlus, Loader2, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react'
-import type { Category, MenuItem, OptionGroup } from '../../types'
+import { FolderCog, ImagePlus, Loader2, Pencil, Plus, Settings2, Trash2, X } from 'lucide-react'
+import type { MenuItem, OptionGroup } from '../../types'
 import { PageHeader } from '../../app/AdminLayout'
 import { MenuThumb, Modal, Req } from '../../components/ui'
-import { CATEGORIES, categoryLabel } from '../../data/constants'
+import { CategoryManagerModal } from '../../components/CategoryManagerModal'
 import { useAppStore } from '../../store/useAppStore'
 import { menuService } from '../../services'
 import { errorMessage } from '../../lib/apiClient'
@@ -19,13 +19,16 @@ const EMOJI_CHOICES = ['🥐', '🍞', '🥯', '🥖', '🧁', '🍰', '🍪', '
 /** ร้านเพิ่ม/แก้ไขเมนูเองได้ — โดยเฉพาะเมนูขนมที่เปลี่ยนตามฤดูกาล */
 export default function MenuManagementPage() {
   const menus = useAppStore((s) => s.menus)
+  const categories = useAppStore((s) => s.categories)
   const refreshMenus = useAppStore((s) => s.refreshMenus)
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? '—'
+  const [managingCategories, setManagingCategories] = useState(false)
   // STAFF ดูเมนูและปิด/เปิดขายได้ (ของหมดหน้างาน) แต่เพิ่ม/แก้/ลบ ต้องเป็น ADMIN
   const isAdmin = useIsAdmin()
-  const [cat, setCat] = useState<Category | 'ALL'>('ALL')
+  const [cat, setCat] = useState<string>('ALL')
   const [editing, setEditing] = useState<MenuItem | 'NEW' | null>(null)
 
-  const visible = useMemo(() => (cat === 'ALL' ? menus : menus.filter((m) => m.category === cat)), [menus, cat])
+  const visible = useMemo(() => (cat === 'ALL' ? menus : menus.filter((m) => m.categoryId === cat)), [menus, cat])
 
   const toggleAvailability = async (menu: MenuItem) => {
     try {
@@ -59,9 +62,14 @@ export default function MenuManagementPage() {
         subtitle={`${menus.length} เมนูในระบบ · ${menus.filter((m) => !m.isAvailable).length} เมนูปิดขายอยู่`}
         actions={
           isAdmin ? (
-            <button onClick={() => setEditing('NEW')} className="btn-primary flex items-center gap-2 px-4 py-2.5">
-              <Plus className="h-4 w-4" /> เพิ่มเมนูใหม่
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setManagingCategories(true)} className="btn-soft flex items-center gap-2 px-4 py-2.5">
+                <FolderCog className="h-4 w-4" /> หมวดหมู่
+              </button>
+              <button onClick={() => setEditing('NEW')} className="btn-primary flex items-center gap-2 px-4 py-2.5">
+                <Plus className="h-4 w-4" /> เพิ่มเมนูใหม่
+              </button>
+            </div>
           ) : (
             <p className="text-xs text-ink-mute">บัญชีพนักงานปิด/เปิดขายได้ · เพิ่มและแก้ไขเมนูต้องใช้บัญชีผู้จัดการ</p>
           )
@@ -69,13 +77,13 @@ export default function MenuManagementPage() {
       />
 
       <div className="flex gap-2 overflow-x-auto px-4 pb-4 sm:px-8 [scrollbar-width:none]">
-        {[{ id: 'ALL' as const, label: 'ทั้งหมด' }, ...CATEGORIES].map((c) => (
+        {[{ id: 'ALL', name: 'ทั้งหมด' }, ...categories].map((c) => (
           <button
             key={c.id}
             onClick={() => setCat(c.id)}
             className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${cat === c.id ? 'bg-lita-800 text-white' : 'bg-lita-50 text-lita-800 hover:bg-lita-100'}`}
           >
-            {c.label}
+            {c.name}
           </button>
         ))}
       </div>
@@ -104,7 +112,7 @@ export default function MenuManagementPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="hidden px-4 py-3 text-ink-soft sm:table-cell">{categoryLabel(m.category)}</td>
+                  <td className="hidden px-4 py-3 text-ink-soft sm:table-cell">{categoryName(m.categoryId)}</td>
                   <td className="px-4 py-3 text-right font-semibold tabular-nums text-ink">{baht(m.price)}</td>
                   <td className="px-4 py-3 text-center">
                     <button
@@ -141,19 +149,21 @@ export default function MenuManagementPage() {
       </div>
 
       <MenuFormModal key={editing === 'NEW' ? 'new' : (editing?.id ?? 'none')} editing={editing} onClose={() => setEditing(null)} />
+      <CategoryManagerModal open={managingCategories} onClose={() => setManagingCategories(false)} />
     </>
   )
 }
 
 function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null; onClose: () => void }) {
   const groups = useAppStore((s) => s.optionGroups)
+  const categories = useAppStore((s) => s.categories)
   const current = editing === 'NEW' ? null : editing
   const [form, setForm] = useState(() => ({
     name: current?.name ?? '',
     nameTh: current?.nameTh ?? '',
     description: current?.description ?? '',
     price: current?.price ?? 0,
-    category: (current?.category ?? 'DESSERT') as Category,
+    categoryId: current?.categoryId ?? categories[0]?.id ?? '',
     emoji: current?.emoji ?? '🧁',
     imageUrl: current?.imageUrl ?? '',
     optionGroupIds: current?.optionGroupIds ?? [],
@@ -165,7 +175,7 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
   const fileRef = useRef<HTMLInputElement>(null)
 
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }))
-  const valid = form.name.trim() && form.price > 0
+  const valid = form.name.trim() && form.price > 0 && form.categoryId
 
   const pickFile = async (file?: File) => {
     if (!file) return
@@ -231,9 +241,9 @@ function MenuFormModal({ editing, onClose }: { editing: MenuItem | 'NEW' | null;
           </div>
           <div>
             <label htmlFor="f-cat" className="label">หมวดหมู่</label>
-            <select id="f-cat" className="field" value={form.category} onChange={(e) => set('category', e.target.value as Category)}>
-              {CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>{c.label}</option>
+            <select id="f-cat" className="field" value={form.categoryId} onChange={(e) => set('categoryId', e.target.value)}>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
           </div>

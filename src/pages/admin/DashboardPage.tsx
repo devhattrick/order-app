@@ -15,10 +15,9 @@ import {
   YAxis,
 } from "recharts";
 import { PageHeader } from "../../app/AdminLayout";
-import { categoryLabel } from "../../data/constants";
 import { errorMessage } from "../../lib/apiClient";
 import { dashboardService } from "../../services";
-import type { Category, DashboardSummary } from "../../types";
+import type { DashboardSummary } from "../../types";
 import { baht } from "../../utils/format";
 
 /** ลำดับสีไล่โทนเขียว Lita — ใช้เรียงตามค่ามาก→น้อย เพื่อให้อ่านลำดับได้จากสี */
@@ -57,7 +56,9 @@ export default function DashboardPage() {
     if (!summary) return null;
 
     const byCat = summary.salesByCategory
-      .map((c) => ({ id: c.category as Category, label: categoryLabel(c.category), value: c.revenue }))
+      // c.category คือชื่อหมวด ณ เวลาที่สั่ง ที่ server เก็บไว้ใน order_item
+      // จึงแสดงชื่อเดิมได้ถูกต้องแม้ร้านจะเปลี่ยนชื่อหรือลบหมวดนั้นไปแล้ว
+      .map((c) => ({ id: c.category, label: c.category, value: c.revenue }))
       .filter((c) => c.value > 0)
       .sort((a, b) => b.value - a.value);
 
@@ -279,7 +280,7 @@ export default function DashboardPage() {
                       style={{ background: SERIES[i % SERIES.length] }}
                     />
                     <span className="flex-1 text-ink-soft">
-                      {categoryLabel(c.id)}
+                      {c.label}
                     </span>
                     <span className="font-semibold tabular-nums text-ink">
                       {baht(c.value)}

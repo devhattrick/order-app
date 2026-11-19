@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { menuService, optionGroupService, orderService } from "../services";
-import type { MenuItem, OptionGroup, Order } from "../types";
+import { categoryService, menuService, optionGroupService, orderService } from "../services";
+import type { MenuCategory, MenuItem, OptionGroup, Order } from "../types";
 
 /**
  * ที่เก็บข้อมูลฝั่งหน้าจอ (cache ของข้อมูลจาก Backend)
@@ -16,6 +16,7 @@ import type { MenuItem, OptionGroup, Order } from "../types";
  */
 
 interface AppState {
+  categories: MenuCategory[];
   menus: MenuItem[];
   optionGroups: OptionGroup[];
   orders: Order[];
@@ -24,6 +25,7 @@ interface AppState {
   error: string | null;
 
   loadAll: () => Promise<void>;
+  refreshCategories: () => Promise<void>;
   refreshMenus: () => Promise<void>;
   refreshOptionGroups: () => Promise<void>;
   refreshOrders: () => Promise<void>;
@@ -37,6 +39,7 @@ interface AppState {
 const isOpen = (order: Order) => order.status !== "COMPLETED" && order.status !== "CANCELLED";
 
 export const useAppStore = create<AppState>()((set, get) => ({
+  categories: [],
   menus: [],
   optionGroups: [],
   orders: [],
@@ -45,16 +48,19 @@ export const useAppStore = create<AppState>()((set, get) => ({
 
   loadAll: async () => {
     try {
-      const [menus, optionGroups, orders] = await Promise.all([
+      const [categories, menus, optionGroups, orders] = await Promise.all([
+        categoryService.list(),
         menuService.list(),
         optionGroupService.list(),
         orderService.active(),
       ]);
-      set({ menus, optionGroups, orders, ready: true, error: null });
+      set({ categories, menus, optionGroups, orders, ready: true, error: null });
     } catch {
       set({ ready: true, error: "โหลดข้อมูลจากเซิร์ฟเวอร์ไม่สำเร็จ" });
     }
   },
+
+  refreshCategories: async () => set({ categories: await categoryService.list() }),
 
   refreshMenus: async () => set({ menus: await menuService.list() }),
 
@@ -71,5 +77,6 @@ export const useAppStore = create<AppState>()((set, get) => ({
     for (const order of orders) get().applyOrder(order);
   },
 
-  reset: () => set({ menus: [], optionGroups: [], orders: [], ready: false, error: null }),
+  reset: () =>
+    set({ categories: [], menus: [], optionGroups: [], orders: [], ready: false, error: null }),
 }));

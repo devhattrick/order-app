@@ -1,4 +1,12 @@
-export type Category = 'SANDWICH' | 'BREAD' | 'DRINK' | 'DESSERT'
+/** หมวดหมู่เมนู — ร้านเพิ่ม/แก้/ลบเองได้ ไม่ใช่ค่าตายตัวในโค้ดแล้ว */
+export interface MenuCategory {
+  id: string
+  name: string
+  nameEn?: string | null
+  sortOrder: number
+  /** จำนวนเมนูที่ใช้หมวดนี้ — ใช้เตือนก่อนลบ */
+  menuCount: number
+}
 
 export type OrderType = 'DINE_IN' | 'TAKEAWAY'
 
@@ -44,7 +52,7 @@ export interface MenuItem {
   nameTh: string
   description: string
   price: number
-  category: Category
+  categoryId: string
   emoji: string
   imageUrl?: string
   optionGroupIds: string[]
@@ -75,7 +83,8 @@ export interface CartItem {
 export interface OrderItem {
   menuId: string
   menuName: string
-  category: Category
+  /** ชื่อหมวด ณ เวลาที่สั่ง — ไม่เปลี่ยนตามการแก้หมวดภายหลัง */
+  category: string
   emoji: string
   options: SelectedOption[]
   unitPrice: number
@@ -142,6 +151,6 @@ export interface DashboardSummary {
   availableMenuCount: number
   dailySales: { date: string; revenue: number; orders: number }[]
   hourlyOrders: { hour: number; averageOrders: number }[]
-  salesByCategory: { category: Category; revenue: number }[]
+  salesByCategory: { category: string; revenue: number }[]
   topMenus: { menuName: string; qty: number; revenue: number }[]
 }

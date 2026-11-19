@@ -1,16 +1,7 @@
-import type { Category, Order, OrderStatus, OrderType, Table } from '../types'
+import type { Order, OrderStatus, OrderType, Table } from '../types'
 
 export const SHOP_NAME = 'Lita'
 export const SHOP_TAGLINE = 'Sourdough bakery & café'
-
-export const CATEGORIES: { id: Category; label: string; labelEn: string }[] = [
-  { id: 'SANDWICH', label: 'แซนด์วิช & โทสต์', labelEn: 'Sandwiches' },
-  { id: 'BREAD', label: 'ขนมปังซาวโดว์', labelEn: 'Loaves' },
-  { id: 'DRINK', label: 'เครื่องดื่ม', labelEn: 'Drinks' },
-  { id: 'DESSERT', label: 'ขนม', labelEn: 'Sweets' },
-]
-
-export const categoryLabel = (c: Category) => CATEGORIES.find((x) => x.id === c)?.label ?? c
 
 export const TABLES: Table[] = Array.from({ length: 10 }, (_, i) => ({
   tableNo: `T${i + 1}`,

@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Plus, Search } from 'lucide-react'
-import type { Category, MenuItem } from '../types'
-import { CATEGORIES } from '../data/constants'
+import type { MenuItem } from '../types'
 import { useAppStore } from '../store/useAppStore'
 import { MenuThumb } from './ui'
 import { baht } from '../utils/format'
@@ -15,17 +14,20 @@ interface Props {
 
 export function MenuBrowser({ onPick, layout = 'list', stickyTop = 'top-0' }: Props) {
   const menus = useAppStore((s) => s.menus)
-  const [cat, setCat] = useState<Category | 'ALL'>('ALL')
+  const categories = useAppStore((s) => s.categories)
+  const [cat, setCat] = useState<string>('ALL')
   const [q, setQ] = useState('')
 
   const visible = useMemo(() => {
     const term = q.trim().toLowerCase()
     return menus.filter(
-      (m) => (cat === 'ALL' || m.category === cat) && (!term || m.name.toLowerCase().includes(term) || m.nameTh.includes(term)),
+      (m) => (cat === 'ALL' || m.categoryId === cat) && (!term || m.name.toLowerCase().includes(term) || m.nameTh.includes(term)),
     )
   }, [menus, cat, q])
 
-  const grouped = CATEGORIES.map((c) => ({ ...c, items: visible.filter((m) => m.category === c.id) })).filter((g) => g.items.length)
+  const grouped = categories
+    .map((c) => ({ ...c, items: visible.filter((m) => m.categoryId === c.id) }))
+    .filter((g) => g.items.length)
 
   return (
     <div>
@@ -35,7 +37,7 @@ export function MenuBrowser({ onPick, layout = 'list', stickyTop = 'top-0' }: Pr
           <input className="field pl-10" placeholder="ค้นหาเมนู" value={q} onChange={(e) => setQ(e.target.value)} aria-label="ค้นหาเมนู" />
         </div>
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none]" role="tablist">
-          {[{ id: 'ALL' as const, label: 'ทั้งหมด' }, ...CATEGORIES].map((c) => (
+          {[{ id: 'ALL', name: 'ทั้งหมด' }, ...categories].map((c) => (
             <button
               key={c.id}
               role="tab"
@@ -43,7 +45,7 @@ export function MenuBrowser({ onPick, layout = 'list', stickyTop = 'top-0' }: Pr
               onClick={() => setCat(c.id)}
               className={`shrink-0 rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${cat === c.id ? 'bg-lita-800 text-white' : 'bg-lita-50 text-lita-800 hover:bg-lita-100'}`}
             >
-              {c.label}
+              {c.name}
             </button>
           ))}
         </div>
@@ -54,8 +56,8 @@ export function MenuBrowser({ onPick, layout = 'list', stickyTop = 'top-0' }: Pr
       {grouped.map((g) => (
         <section key={g.id} className="mb-6">
           <h3 className="mb-2 flex items-baseline gap-2">
-            <span className="font-brand text-lg text-ink">{g.labelEn}</span>
-            <span className="text-sm text-ink-mute">{g.label}</span>
+            <span className="font-brand text-lg text-ink">{g.nameEn ?? g.name}</span>
+            {g.nameEn ? <span className="text-sm text-ink-mute">{g.name}</span> : null}
           </h3>
           {layout === 'list' ? (
             <ul className="divide-y divide-line">
